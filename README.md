@@ -32,14 +32,14 @@ Riferimenti normativi:
 - Successive modifiche delle regole per la determinazione dei colori delle regioni - 1 agosto 2021: https://www.ticonsiglio.com/colori-regioni-regole-governo/
 
 Sequenza:
-- [decreto-legge 25 marzo 2020, n. 19](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2020-03-25;19)
-- [legge 22 maggio  2020,  n.  35](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2020-05-22;35)
-- [decreto-legge 16 maggio 2020, n. 33](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2020-05-16;33)
-- [legge 14 luglio 2020, n. 74](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2020-07-14;74)
-- [DPCM (Decreto Presidente Consiglio dei Ministri) 3/11/2020 (Gazzetta Ufficiale della Repubblica italiana 4  novembre 2020,n. 275)](https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg)  (**istituzione zone colori/regioni**)
+- [decreto-legge 25 marzo 2020, n. 19](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2020-03-25;19)  -->  [legge 22 maggio  2020,  n.  35](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2020-05-22;35)
+- [decreto-legge 16 maggio 2020, n. 33](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2020-05-16;33) --> [legge 14 luglio 2020, n. 74](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2020-07-14;74) (GU n.125 del 16-05-2020)  (**zone colorate nazionali**, art.1, comma 16-septies )
+- [DPCM (Decreto Presidente Consiglio dei Ministri) 3/11/2020 (Gazzetta Ufficiale della Repubblica italiana 4  novembre 2020,n. 275)](https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg)  (**zone colorate regionali**)
 - ["Decreto di Natale" 2020](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2020-12-02&atto.codiceRedazionale=20G00184&tipoDettaglio=originario&qId=&tabID=0.48476910017483954&title=Atto%20originario&bloccoAggiornamentoBreadCrumb=true)
-- 
-
-
-
+- [decreto-legge 1°  aprile  2021,  n.  44](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2021-04-01;44) --> [legge 28 maggio 2021,  n.  76](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2021-05-28;76)
+- [decreto-legge 22  aprile  2021,  n.  52](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2021-04-22;52) --> [legge 17 giugno 2021,  n.  87](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2021-06-17;87)
+- [decreto-legge 23 luglio  2021,  n.  105](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2021-07-23;105)  --> [legge 16 settembre 2021, n. 126](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2021-09-16;126)
+- [decreto-legge 6  agosto  2021,  n.  111](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2021-08-06;111) --> [legge 24 settembre 2021, n. 133](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2021-09-24;133)
+- [decreto-legge 21 settembre 2021, n. 127](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2021-09-21;127) --> [legge 19 novembre 2021, n. 165](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2021-11-19;165)
+- [decreto-legge  8   ottobre   2021,   n.   139](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2021-10-08;139) --> (attendere prego...)
 
