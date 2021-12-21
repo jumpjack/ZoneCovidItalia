@@ -3,7 +3,7 @@ Visualizzazione grafica delle restrizioni regionali per covid ("colori") in vigo
 
 ![image](https://user-images.githubusercontent.com/1620953/146897772-df97e7b3-64e4-48e4-9303-76b4aebaa4e3.png)
 
-Il DPCM del 3 novembre 2020 ha istituito la suddivisione dell'Italia in "zone colorate" a seconda della gravità della situazione-covid, secondo questo schema:
+Il [DPCM del 3 novembre 2020](https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg) ha istituito la suddivisione dell'Italia in "zone colorate" a seconda della gravità della situazione-covid, secondo questo schema:
 
 - Zona bianca: art. 1, comma 11
 - Zona gialla: art. 1
@@ -24,6 +24,22 @@ Al momento il grafico è basato sui [dati](https://github.com/imcatta/restrizion
 
 Riferimenti normativi:
 
-[Elenco provvedimenti COVID-19 (Openpolis.it)](https://www.openpolis.it/coronavirus-lelenco-completo-degli-atti/)
+- [Elenco provvedimenti COVID-19 (Openpolis.it)](https://www.openpolis.it/coronavirus-lelenco-completo-degli-atti/)
+- [Elenco provvedimenti normativi COVID-19 (ISTITUTO PROFESSIONALE DI STATO “ALFIO MONCADA” )](https://www.ipsmoncada.edu.it/pagine/covid-2019-normativa-gazzetta-ufficiale-e-link-ad-altri-organi)
+- [DECRETO-LEGGE 25 marzo 2020, n. 19 (in G.U. 25/03/2020, n.79)](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2020-03-25;19)  (Successivamente modificato per introdurre i colori delle regioni nell'articolo 16)
+- DPCM di istituzione delle zone a colori - 3 novembre 2020: [link](https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg)
+- "Decreto di Natale", con norme sui colori delle regioni in vigore nel periodo di Natale 2020 (GU n.299 del 02-12-2020): [link]( https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2020-12-02&atto.codiceRedazionale=20G00184&tipoDettaglio=originario&qId=&tabID=0.48476910017483954&title=Atto%20originario&bloccoAggiornamentoBreadCrumb=true) - abogato dalla  [Legge 29 GENNAIO 2021, N. 6](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2021-01-29;6)
+- Successive modifiche delle regole per la determinazione dei colori delle regioni - 1 agosto 2021: https://www.ticonsiglio.com/colori-regioni-regole-governo/
+
+Sequenza:
+- [decreto-legge 25 marzo 2020, n. 19](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2020-03-25;19)
+- [legge 22 maggio  2020,  n.  35](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2020-05-22;35)
+- [decreto-legge 16 maggio 2020, n. 33](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2020-05-16;33)
+- [legge 14 luglio 2020, n. 74](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2020-07-14;74)
+- [DPCM (Decreto Presidente Consiglio dei Ministri) 3/11/2020 (Gazzetta Ufficiale della Repubblica italiana 4  novembre 2020,n. 275)](https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg)  (**istituzione zone colori/regioni**)
+- ["Decreto di Natale" 2020](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2020-12-02&atto.codiceRedazionale=20G00184&tipoDettaglio=originario&qId=&tabID=0.48476910017483954&title=Atto%20originario&bloccoAggiornamentoBreadCrumb=true)
+- 
+
+
 
 
