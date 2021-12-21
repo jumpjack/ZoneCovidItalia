@@ -3,7 +3,15 @@ Visualizzazione grafica delle restrizioni regionali per covid ("colori") in vigo
 
 ![image](https://user-images.githubusercontent.com/1620953/146897772-df97e7b3-64e4-48e4-9303-76b4aebaa4e3.png)
 
-Il [DPCM del 3 novembre 2020](https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg) ha istituito la suddivisione dell'Italia in "zone colorate" a seconda della gravità della situazione-covid, secondo questo schema:
+Vedi anche:
+
+- Andamento contagi Italia: http://win98.altervista.org/coronavirus/grafici-ita-fast.html
+- Andamento contagi regioni italiane: http://win98.altervista.org/coronavirus/grafici-ita2.html?max=20&max2=20
+- L'Unione Europea utilizza parametri diversi per determinare il colore delle regioni italiane, vedi mappa: https://reopen.europa.eu/it/map/ITA/7011
+
+----------
+
+Il [DPCM del 3 novembre 2020](https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg) ha istituito la suddivisione dell'Italia in "regioni colorate" a seconda della gravità della situazione-covid, secondo questo schema:
 
 - Zona bianca: art. 1, comma 11
 - Zona gialla: art. 1
