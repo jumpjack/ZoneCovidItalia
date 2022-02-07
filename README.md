@@ -1,13 +1,26 @@
 # ZoneCovidItalia
 Visualizzazione grafica delle restrizioni regionali per covid ("colori") in vigore da novembre 2020
 
-![image](https://user-images.githubusercontent.com/1620953/146897772-df97e7b3-64e4-48e4-9303-76b4aebaa4e3.png)
+![image](https://user-images.githubusercontent.com/1620953/152747481-a2ed6168-cb71-478a-977e-2975c2602d72.png)
+
+Live: https://win98.altervista.org/coronavirus/grafico-colori-regioni-covid-zone-v4.html
 
 Vedi anche:
 
-- Andamento contagi Italia: http://win98.altervista.org/coronavirus/grafici-ita-fast.html
-- Andamento contagi regioni italiane: http://win98.altervista.org/coronavirus/grafici-ita2.html?max=20&max2=20
-- L'Unione Europea utilizza parametri diversi per determinare il colore delle regioni italiane, vedi mappa: https://reopen.europa.eu/it/map/ITA/7011
+- Andamento contagi Italia: http://win98.altervista.org/coronavirus/grafici-ita-fast-mio.html
+- Andamento contagi regioni italiane: http://win98.altervista.org/coronavirus/grafici-ita2-mio.html?max=20&max2=20
+
+
+L'Unione Europea utilizza parametri diversi per determinare il colore delle regioni italiane, vedi mappa: https://reopen.europa.eu/it/map/ITA/7011
+
+Quest'altra pagina visualizza questi dati in forma tabellare, ma è ancora in bozza e poco utilizzabile (e forse rimarrà per sempre così...): http://win98.altervista.org/coronavirus/zone-europa.html
+
+Occorre verificare da console se la pagina sta effettivamente funzionando o se si è bloccata. Questo è l'output finale:
+
+![image](https://user-images.githubusercontent.com/1620953/152746794-156726e8-478a-4ec9-bdf0-de7710045baf.png)
+
+
+
 
 ----------
 
