@@ -1,0 +1,968 @@
+<html>
+<!--
+2.2.1 - Aggiunto zoom manuale, riordinati valori
+2.2.0
+Aggiunto valore e data ultimo dato
+Aggiunta data attuale
+Aggiunti e/o rinominati dati vari:
+	morti_su_positivi
+	terapiaIntensiva_su_positivi
+	ricoverati_su_positivi
+	totali_su_100mila
+	nuovi_su_100mila
+
+2.1.1 - Aggiunto toggle per curve di regressione; aggiunto ultimo valore
+2.1.0 - Inizio regressione preimpostato automaticamente a una settimana prima; dati scaricati automaicamente senza premere pulsante; aggiunte variazioni giornaliere di ricoverati normali e in terapia intensiva
+2.0.0 - Solo Italia
+1.9.0 - Corretta scala asse Y (tolti decimali dagli estremi); tolto calco Rt/RTmio, tanto non ha senso; cambiato link per CORS
+1.8.3 - Modifica online: regressione parte da 371 invece che 341; aggiungo link a dati OurWorldInData e Epimox
+1.8.2 - Aumentata scala massima possibile
+1.8.1 - Cambiata data di inizio regressione
+1.8.0 - Sistemati vecchi difetti minori; aggiunti tentativi di calcolare Rt; nascosti i pulsanti di regolazione della regressione finchè non si caricano i dati.
+1.7.0 - Aggiunta impostabilità inizio/fine regressione
+1.6.0 - Ridimensionati grafici e aggiunte linee dei DPCM
+1.5.2 - Corretto bug di dati ultimo giorno mancanti per Italia
+1.5.1 - Aggiunti dati ulteriori anche per regioni
+1.5.0 - Aggiunta checkbox autozoom per italia e regioni; aggiunti calcoli terapia intensiva per italia, predisposti per regioni
+1.4.0 - Aggiunti tasti per zoom percentuale e visualizzazione direttamente di una sola regione alla volta
+1.3.0 - Aggiunta regressione polinomiale e lineare per dati futuri
+1.2.0 - Aggiunti dati calcolato ulteriori a fine liste
+1.1.0 - Aggiunta funzione interna di selezione dato per nome invec che per numero 
+1.0.0 - Aggiunte liste di scelta per dati e regioni e simmetrizzato lo zoom.
+0.5.0 - Aggiunta lista di scelta per Italia
+0.4.2 - Aggiunto controllo tramnite tastiera degli slider; rimosso secondo slider temporaneo in secondo grafico.
+0.4.1 - Allargati slider, aggiunti calcoli
+0.4.0 - Risolto bug di dati errati in primo grafico: aggiunto grafico per italia oltre a due per regioni; ottimizzati slider e layout.
+0.3.2 - Precompilate caselle di testo con numero del campo graficato
+0.3.1 - Risolto bug di cambio titolo grafici al cambio manuale dei dati; prima versione pubblica
+0.3.0 - Aggiungo slider scala
+0.2.0 - Provo con dati regionali
+0.1.0 - Provo con dati italiani
+0.0.3 - 
+Versione 0.0.2 - Disponibili dati grezzi e differenze, ora devo metterli su due grafici diversi
+
+-->
+
+	<head>
+	<script src="js/jquery.js"></script> <!-- https://jquery.com/download/ -->
+	<script src="js/Chart.bundle.js"></script> <!--  https://github.com/chartjs/Chart.js/releases/tag/v2.8.0  La versione "bundle" contiene anche tutte le dipendenze necessarie -->
+	<script src="js/utils.js"></script>		<!-- https://gist.github.com/dsmoore/d9526ecc66fd3dccffd1cde73ea738a5 Contiene definizioni dei colori -->
+	<script src="js/chart-config.js"></script>
+	<script src="js/posti.js"></script>
+	</head>
+	
+	<body>
+    <script type="text/javascript" src="js/regression2.min.js"></script> <!-- Per linea di tendenza polinomiale -->
+	<script>
+
+	datoInizialeItalia = 11;
+
+	paramStart = getParam("start",-1);
+	paramEnd = getParam("end","today");
+	
+    regressionStartIndex = -1;
+    regressionEndIndex = -1;
+	regressionNextDaysCount = 90;
+
+
+	$( document ).ready(function() {
+		var ctxItalia = document.getElementById("graficoItalia").getContext('2d');
+	//	var ctxRegioni1 = document.getElementById("graficoRegioni1").getContext('2d');
+	//	var ctxRegioni2 = document.getElementById('graficoRegioni2').getContext('2d');
+	//	var autoZoomRegioni1 = document.getElementById('autoZoomRegioni1').checked;
+	//	var autoZoomRegioni2 = document.getElementById('autoZoomRegioni2').checked;
+		var autoZoomItalia = document.getElementById('autoZoomItalia').checked;
+		scDataItalia = scatterChartDataItalia();
+
+		configItalia = config();
+		configItalia.options.title.text = "Italia";
+		configItalia.options.scales.yAxes[0].ticks.max = scalaInizialeItalia;
+		document.getElementById("rngSliderItalia").min= 10;
+		document.getElementById("rngSliderItalia").max=maxItalia;
+		document.getElementById("rngSliderItalia").value = scalaInizialeItalia;
+		
+		configItalia.data = scDataItalia;
+		window.chartItalia = Chart.Scatter(ctxItalia, configItalia);
+		sliderItalia = document.getElementById("rngSliderItalia");
+		sliderItalia.onchange=function () {
+			scale(this.value*1.0, 0);
+		}
+
+		down();
+	});
+	
+	
+	function updateStart() {
+		if (document.getElementById("newstart").value < 0) {
+			document.getElementById("newstart").value = 0
+		}
+		var index = document.getElementById("newstart").value * 1;
+		var d = scDataItalia.datasets[0].data;
+		document.getElementById("newstartDate").value = new Date(d[index].x);
+	}
+	
+	
+	function updateEnd() {
+console.log(scDataItalia.datasets[0].data);	
+
+		
+		if (document.getElementById("newend").value > scDataItalia.datasets[0].data.length-1) {
+			document.getElementById("newend").value = scDataItalia.datasets[0].data.length-1;
+		}	
+		var index = document.getElementById("newend").value * 1;
+		var d = scDataItalia.datasets[0].data;
+		document.getElementById("newendDate").value = new Date(d[index].x);
+	}
+	
+	
+	function getParam(text,defaultVal) {
+		regex = "/.*" + text + "=([^&]*).*|(.*)/"
+		var url = new URL(document.URL);
+		temp =  url.searchParams.get(text);
+		if (temp != null) {
+			return temp;
+		} else {
+			return defaultVal;
+		}
+	}
+
+	
+	function mialabel(tooltipItem, data) {
+		return data.datasets[tooltipItem.datasetIndex].label + ": " + tooltipItem.xLabel.substr(0,16) + " - " + tooltipItem.yLabel.toFixed(1) + " (n." + tooltipItem.index + ")";
+	}
+
+	function getOption(opzione) {
+        return ('<option value="' + headerArray[opzione] + '">' +  headerArray[opzione]  + '</option>');
+	}
+
+
+
+
+			
+	function down() {
+		  var fullURL;			
+console.log("invio richiesta...");	
+			document.getElementById("status").innerHTML = "Invio prima richiesta....";		
+			fullURL = "https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv";
+			// Italia: https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv
+			// Mondo: https://github.com/CSSEGISandData/COVID-19/raw/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv
+		
+			var client = new XMLHttpRequest();
+console.log ("Apro " + fullURL + "...");
+			corsurl = "http://win98.altervista.org/space/exploration/myp.php?pass=miapass&mode=native&url=" + encodeURIComponent(fullURL);
+			client.open('GET', corsurl);
+			client.responseType = 'text';		
+			client.onload = function() {
+				document.getElementById("status").innerHTML = "Primo batch dati ricevuto. Elaboro...";
+				console.log("Risposta ricevuta, la elaboro e poi mando la prossima richiesta...");
+				dataCSVitalia = client.response; // Load remote response.						
+				processItalianData();
+
+
+		regressionStartIndex = tabella.length - 30; // DEBUG
+		regressionEndIndex = tabella.length-1;
+
+
+			if (paramStart != -1) {
+				regressionStartIndex = paramStart*1;
+			}
+
+
+			dataCount = tabella.length-1;
+			if (paramEnd == "today") {
+				regressionEndIndex = dataCount;
+			} else {
+				regressionEndIndex = paramEnd*1;
+			}
+
+
+console.log("Dati italia elaborati, inserisco in grafico...");
+				mettiDatiInGrafici(arrIndex(headerArray,"%positivi(calcolato)"),"","");
+console.log("Grafico completato");
+				document.getElementById("status").innerHTML = "";
+
+				/*
+				client.onerror = function(event) {
+					document.getElementById("status").innerHTML = "Errore di rete su batch 2";
+					alert("Errore di rete, riprovare.");
+				}					
+				
+			    client.onprogress = function(event) {
+			  		showDownloadProgress("batch 2", client.response.length);
+				};	
+							
+				client.send(); */
+			};	
+
+		    client.onprogress = function(event) {
+		  		showDownloadProgress("batch 1", client.response.length);
+			};	
+			
+			client.onerror = function(event) {
+				document.getElementById("status").innerHTML = "Errore di rete su batch 1";
+			}
+						
+			client.send(); 
+			
+	}
+	
+
+
+	
+	function mySorter(a,b) {
+		if (a.LastValOfLine*1.0 > b.LastValOfLine*1.0) {
+	        return -1;
+	    }
+	    if (b.LastValOfLine*1.0 > a.LastValOfLine*1.0) {
+	        return 1;
+	    }
+    	return 0;
+	}
+	
+	
+	
+	
+	function showDownloadProgress(batch, L) {
+	  	document.getElementById("status").innerHTML = "Downloading " + batch + " ... " + L;
+	}
+	
+	
+	function arrIndex(arr, arrKey) {
+		keyFound = false;
+		for (i=0; i < arr.length; i++) {
+			if(arr[i] == arrKey) {
+				keyFound = true;
+				return i;
+			}
+		}
+		return -1; // will raise an error in caller function
+	}
+	
+	
+	function processItalianData() {
+		console.log("processItalianData start");
+		tabellaVirgole = dataCSVitalia.split("\n"); //
+		tabella = []; // Definisce array bidimensionale, cioè tabella
+
+		// Salta righe spurie nella tabella (response HTML), cercando quella che contiene effettivamente l'header:
+		rigaHeaderIta=0;
+		for(rigaIndexIta = 0; ((rigaIndexIta < tabellaVirgole.length) && (tabellaVirgole[rigaIndexIta].indexOf("data")<0)); rigaIndexIta++) {
+		}
+
+        rigaHeaderIta = rigaIndexIta;
+
+		headerArray = tabellaVirgole[rigaHeaderIta].split(",");
+		tamponi_ieri = 0;
+		casiTestati_ieri = 0;
+		guariti_ieri = 0;
+		morti_ieri = 0;
+		ricoverati_con_sintomi_ieri = 0;
+        terapiaIntensiva_ieri = 0;
+        RANGE_RT_INFN = 4; // giorni su cui viene calcolato Rt secondo l'INFN (https://sciencecue.it/coronavirus-come-si-calcola-indice-contagiosita-rt/21898/)
+        RtCurrRange = 0;
+        Rt = 0;
+		for (riga = rigaHeaderIta; riga < tabellaVirgole.length-1; riga++) { // L'ultima riga della tabella originale risulta vuota
+document.getElementById("status").innerHTML = riga;
+			arrayRiga = tabellaVirgole[riga].split(",");
+//console.log("Elaboro riga n. " , riga, " di " , tabellaVirgole.length, "..."); // , ":", arrayRiga);
+
+			if ((riga>rigaHeaderIta) && (arrayRiga.length>3)) { // Aggiunge dati in fondo a riga solo se la riga contiene già dati validi
+//console.log("    Calcolo dati aggiuntivi miei...");
+//   ******************** Dati calcolati aggiuntivi ITALIA
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+				guariti = arrayRiga[arrIndex(headerArray,"dimessi_guariti")] * 1.0 ;
+                guariti_giornalieri = guariti - guariti_ieri;
+                guariti_ieri = guariti;
+
+
+				morti = arrayRiga[arrIndex(headerArray,"deceduti")]* 1.0;
+                morti_giornalieri = morti - morti_ieri;
+                morti_ieri = morti;
+
+
+
+				totale_positivi = arrayRiga[arrIndex(headerArray,"totale_positivi")]* 1.0;
+				nuovi_positivi = arrayRiga[arrIndex(headerArray,"nuovi_positivi")]* 1.0;
+
+				ricoveratiUsciti = morti + guariti;
+				ricoveratiUscitiGiornalieri = morti_giornalieri + guariti_giornalieri;
+				totali_su_100mila = 100000 * totale_positivi / 59258000;
+				nuovi_su_100mila = 100000 * nuovi_positivi / 59258000;
+
+				//RtMIO = nuovi_positivi / ricoveratiUscitiGiornalieri;
+
+				tamponi = arrayRiga[arrIndex(headerArray,"tamponi")];
+				tamponi_giornalieri = arrayRiga[arrIndex(headerArray,"tamponi")] - tamponi_ieri;
+                tamponi_ieri = tamponi;
+
+				casi = arrayRiga[arrIndex(headerArray,"totale_casi")]; // debug - usato???
+
+				casiTestati = arrayRiga[arrIndex(headerArray,"casi_testati")]; // = tamponi non ricorrenti
+                casiTestati_giornalieri = casiTestati - casiTestati_ieri;
+                casiTestati_ieri = casiTestati;
+
+				ricoverati_con_sintomi = arrayRiga[arrIndex(headerArray,"ricoverati_con_sintomi")]* 1.0;
+                ricoverati_con_sintomi_giornalieri = ricoverati_con_sintomi - ricoverati_con_sintomi_ieri;
+                ricoverati_con_sintomi_ieri = ricoverati_con_sintomi;
+
+				terapiaIntensiva = arrayRiga[arrIndex(headerArray,"terapia_intensiva")];
+                terapiaIntensiva_giornalieri = terapiaIntensiva - terapiaIntensiva_ieri;
+                terapiaIntensiva_ieri = terapiaIntensiva;
+
+
+
+				guariti_su_usciti = 100 * guariti_giornalieri / ricoveratiUscitiGiornalieri;
+				guariti_su_morti = 100 * guariti_giornalieri / morti_giornalieri;
+				morti_su_positivi = 100*morti_giornalieri / nuovi_positivi;
+				terapiaIntensiva_su_positivi = 100*terapiaIntensiva_giornalieri / nuovi_positivi;
+				ricoverati_su_positivi = 100*ricoverati_con_sintomi_giornalieri / nuovi_positivi;
+
+
+
+				if (100*nuovi_positivi/tamponi_giornalieri >100){
+					percentuale_positivi = 0;
+				} else {
+					percentuale_positivi = 100*nuovi_positivi/tamponi_giornalieri;
+				}
+
+				if (100*nuovi_positivi/casiTestati_giornalieri >100){ // Calcola percentuale su soli tamponi non ricorrenti
+					percentuale_testati_positivi = 0;
+				} else {
+					percentuale_testati_positivi = 100*nuovi_positivi/casiTestati_giornalieri;
+				}
+
+				if (100*terapiaIntensiva/postiTItotaliPrima >100){
+					percentuale_terapia_Italia_Prima = 0;
+				} else {
+					percentuale_terapia_Italia_Prima = 100*terapiaIntensiva/postiTItotaliPrima;
+				}
+				
+				if (100*terapiaIntensiva/postiTItotaliDopo >100){
+					percentuale_terapia_Italia_Dopo = 0;
+				} else {
+					percentuale_terapia_Italia_Dopo = 100*terapiaIntensiva/postiTItotaliDopo;
+				}
+
+				
+				arrayRiga.push(percentuale_positivi);
+				arrayRiga.push(percentuale_testati_positivi);
+				arrayRiga.push(percentuale_terapia_Italia_Prima);
+				arrayRiga.push(percentuale_terapia_Italia_Dopo);
+				arrayRiga.push(guariti_su_usciti);
+				arrayRiga.push(guariti_su_morti);
+		        arrayRiga.push(morti_su_positivi);
+		        arrayRiga.push(terapiaIntensiva_su_positivi);
+		        arrayRiga.push(ricoverati_su_positivi);
+
+				arrayRiga.push(tamponi_giornalieri);
+				arrayRiga.push(casiTestati_giornalieri);
+				arrayRiga.push(guariti_giornalieri);
+				arrayRiga.push(morti_giornalieri);
+				arrayRiga.push(ricoverati_con_sintomi_giornalieri);
+				arrayRiga.push(terapiaIntensiva_giornalieri);
+				arrayRiga.push(totali_su_100mila);
+				arrayRiga.push(nuovi_su_100mila);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+console.log("    calcolo ok.");
+			} // fine caso per riga>0
+			
+			if (riga==rigaHeaderIta) {
+      //          arrayRiga.push("guariti_su_usciti(calcolato)","guariti_su_morti(calcolato)","morti_su_positivi(calcolato)", "ricoverati_su_positivi", "terapiaIntensiva_su_positivi", "tamponi_giornalieri(calcolato)","percentuale_positivi(calcolato)") // debug: mi sa che non serve a niente
+			}
+//console.log("aggiungo a tabella: ", arrayRiga);
+			tabella.push(arrayRiga);
+			
+
+		}
+document.getElementById("status").innerHTML = "Fatto.";
+
+
+//   ******************** Dati calcolati aggiuntivi
+		headerArray.push("%positivi(calcolato)");
+		headerArray.push("%testati_positivi(calcolato)");
+		headerArray.push("%terapia_intensiva_prima(calcolato)");
+		headerArray.push("%terapia_intensiva_dopo(calcolato)");
+		headerArray.push("%DeltaGuariti_su_usciti(calcolato)");
+		headerArray.push("%DeltaGuariti_su_DeltaMorti(calcolato)");
+		headerArray.push("%DeltaMorti_su_DeltaPositivi(calcolato)");
+    	headerArray.push("%DeltaTerapiaIntensiva_su_DeltaPositivi(calcolato)");
+		headerArray.push("%DeltaRicoverati_su_DeltaPositivi(calcolato)");
+		headerArray.push("tamponi_giornalieri(calcolato)");
+		headerArray.push("casi_testati_giornalieri(calcolato)");
+		headerArray.push("guariti_giornalieri(calcolato)");
+		headerArray.push("morti_giornalieri(calcolato)");
+		headerArray.push("ricoverati_con_sintomi_giornalieri(calcolato)");
+		headerArray.push("terapiaIntensiva_giornalieri(calcolato)");
+		headerArray.push("totali_su_100mila(calcolato)");
+		headerArray.push("nuovi_su_100mila(calcolato)");
+
+/////////////////////////////////////////////////////
+
+		
+		// Mostra elenco dei campi disponibili per il ritracciamento:
+		//document.getElementById("datiDisponibili1").innerHTML = "";
+		for (campo = 0; campo < headerArray.length; campo++) {
+			//document.getElementById("datiDisponibili1").innerHTML += (campo *1) + " - " + headerArray[campo] + "<br>";
+			document.getElementById("listaDisponibiliItalia").innerHTML += getOption(campo);
+		}
+
+		decreti = [
+			{ "data" : "2020/02/23", "riassunto" : ""},  // 1
+			{ "data" : "2020/02/25", "riassunto" : ""},  // 2
+			{ "data" : "2020/03/01", "riassunto" : ""},  // 3
+			{ "data" : "2020/03/04", "riassunto" : ""},  // 4
+			{ "data" : "2020/03/08", "riassunto" : ""},  // 5
+			{ "data" : "2020/03/09", "riassunto" : ""},  // 6
+			{ "data" : "2020/03/11", "riassunto" : ""},  // 7
+			{ "data" : "2020/03/18", "riassunto" : ""},  // 8
+			{ "data" : "2020/03/22", "riassunto" : ""},  // 9
+			{ "data" : "2020/03/28", "riassunto" : ""},  // 10
+			{ "data" : "2020/04/01", "riassunto" : ""},  // 11
+			{ "data" : "2020/04/04", "riassunto" : ""},  // 12
+			{ "data" : "2020/04/10", "riassunto" : ""},  // 13
+			{ "data" : "2020/04/26", "riassunto" : ""},  // 14
+			{ "data" : "2020/05/12", "riassunto" : ""},  // 15
+			{ "data" : "2020/05/17", "riassunto" : ""},  // 16
+			{ "data" : "2020/05/18", "riassunto" : ""},  // 17
+			{ "data" : "2020/06/11", "riassunto" : ""},  // 18
+			{ "data" : "2020/07/14", "riassunto" : ""},  // 19
+			{ "data" : "2020/08/07", "riassunto" : ""},  // 20
+			{ "data" : "2020/09/07", "riassunto" : ""},  // 21
+			{ "data" : "2020/10/13", "riassunto" : ""},  // 22
+			{ "data" : "2020/10/18", "riassunto" : ""},  // 23
+			{ "data" : "2020/10/24", "riassunto" : ""},  // 25
+			{ "data" : "2020/11/03", "riassunto" : "Regioni colorate"},  // 24
+			{ "data" : "2020/12/03", "riassunto" : "Blocco natalizio - 1"}   // 24
+		];
+	
+/*borderColor: window.chartColors.red,
+backgroundColor:  window.chartColors.white,
+fill: false,
+label: 	"",
+showLine : true,
+lineTension: 0,
+pointRadius: 1,
+data: []
+*/	
+		for (decretindex = 0; decretindex < decreti.length; decretindex++) {
+			decreto = datasetTemplate();
+			decreto.borderColor =  "rgb(0, 0, 0)";
+			decreto.backgroundColor =  "rgb(0, 0, 0)";
+			decreto.borderWidth = 1;
+			decreto.label = "DPCM";
+			decreto.data = [{x: decreti[decretindex].data, y: 0} , {x: decreti[decretindex].data, y: 100}];
+			scDataItalia.datasets.push(decreto);			
+		}
+console.log("processItalianData end");
+
+	} // ProcessItalianData()
+		
+		
+		
+	function processRegionData() {
+		tabellaVirgoleRegioni = dataCSVregioni.split("\n"); // 			
+console.log("Trovate " + tabellaVirgoleRegioni.length + " righe.");				
+		tabellaRegioni = []; // Definisce array bidimensionale, cioè tabella
+        tamponi_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        terapiaIntensiva_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        casiTestati_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_positiviRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_testati_positiviRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_terapia_Regioni_Prima = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_terapia_Regioni_Dopo = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+
+//        ultimiTamponiGiornalieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+		for (riga = 0; riga < tabellaVirgoleRegioni.length; riga++) {
+			arrayRigaRegioni = tabellaVirgoleRegioni[riga].split(",");
+			tabellaRegioni.push(arrayRigaRegioni);
+
+//   ******************** Dati calcolato aggiuntivi per REGIONI
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		}
+
+		// Salta righe spurie nella tabella (response HTML), cercando quella che contiene effettivamente l'header:
+		rigaHeader=0;
+		for(rigaIndex = 0; ((rigaIndex < tabellaRegioni.length) && (tabellaRegioni[rigaIndex][0] != "data")); rigaIndex++) {
+		}
+		console.log(">>>>>>>>>>>>>>>>", rigaIndex);
+        rigaHeader = rigaIndex;
+
+		headerArrayRegioni = tabellaRegioni[rigaHeader];
+		headerArrayRegioni.push("percentuale_guariti_su_usciti(calcolato)");
+		headerArrayRegioni.push("rapporto_guariti_su_morti(calcolato)");
+    headerArrayRegioni.push("morti_su_positivi(calcolato)");
+    headerArrayRegioni.push("ricoverati_su_positivi(calcolato)");
+    headerArrayRegioni.push("terapiaIntensiva_su_positivi(calcolato)");
+		headerArrayRegioni.push("tamponi_giornalieri(calcolato)");
+		headerArrayRegioni.push("percentuale_positivi(calcolato)");
+		headerArrayRegioni.push("percentuale_testati_positivi(calcolato)");
+		headerArrayRegioni.push("percentuale_terapia_intensiva_prima(calcolato)");
+		headerArrayRegioni.push("percentuale_terapia_intensiva_dopo(calcolato)");
+
+
+		for (campo = 0; campo < headerArrayRegioni.length; campo++) {
+            document.getElementById("listaDisponibiliRegioni1").innerHTML += getOptionRegion(campo);
+            document.getElementById("listaDisponibiliRegioni2").innerHTML += getOptionRegion(campo);
+		}
+
+		datiRegioni = [[[]]];
+		for (regione=0; regione < regioni.length; regione++) {
+			datiRegioni[regioni[regione]] = [[]]; // Crea arrei vuoto per dati regionali
+		}
+
+		for (riga=rigaHeader+1; riga < tabellaRegioni.length; riga++) {
+			for (regione = 0; regione < regioni.length; regione++) {
+				if (tabellaRegioni[riga][3] == regioni[regione]) {
+					guaritiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"dimessi_guariti")] * 1.0 ;
+					mortiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"deceduti")]* 1.0;
+					nuovi_positiviRegioni 	= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"nuovi_positivi")]* 1.0;
+					casiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"totale_casi")]* 1.0;
+					guariti_su_ricoveratiRegioni = 100 * guaritiRegioni / (mortiRegioni + guaritiRegioni);
+					guariti_su_mortiRegioni = 100 * guaritiRegioni / mortiRegioni;
+
+					tamponiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"tamponi")]* 1.0;
+					tamponi_giornalieriRegioni = tamponiRegioni - tamponi_ieriRegioni[regione];
+	                tamponi_ieriRegioni[regione] = tamponiRegioni;
+//                    ultimiTamponiGiornalieriRegioni[regione] = tamponi_giornalieriRegioni;
+
+					casiTestatiRegioni = tabellaRegioni[riga][arrIndex(headerArrayRegioni,"casi_testati")] * 1.0 ; // = tamponi non ricorrenti
+	                casiTestati_giornalieriRegioni = casiTestatiRegioni - casiTestati_ieriRegioni[regione];
+	                casiTestati_ieriRegioni[regione] = casiTestatiRegioni;
+
+					terapiaIntensivaRegioni =  tabellaRegioni[riga][arrIndex(headerArrayRegioni,"terapia_intensiva")]* 1.0;
+	                terapiaIntensiva_giornalieriRegioni = terapiaIntensivaRegioni - terapiaIntensiva_ieriRegioni[regione];
+	                terapiaIntensiva_ieriRegioni[regione] = terapiaIntensivaRegioni;
+
+					if (100*nuovi_positiviRegioni/tamponi_giornalieriRegioni > 101) {
+						percentuale_positiviRegioni[regione] = 0;
+					} else {
+						percentuale_positiviRegioni[regione] = 100*nuovi_positiviRegioni/tamponi_giornalieriRegioni;
+					}
+
+					if (100*nuovi_positiviRegioni/casiTestati_giornalieriRegioni >101){ // Calcola percentuale su soli tamponi non ricorrenti
+//console.log("Percentuale errata per percentuale_testati_positiviRegioni in riga " , riga , "per regione " , regione , "(" , tabellaRegioni[riga], "," , nuovi_positiviRegioni , "," , casiTestati_giornalieriRegioni , ")");
+						percentuale_testati_positiviRegioni[regione] = 0;
+					} else {
+						percentuale_testati_positiviRegioni[regione] = 100*nuovi_positiviRegioni/casiTestati_giornalieriRegioni;
+					}
+
+					postiPrima = postiTIregioni[regione].prima;
+					if (100*terapiaIntensivaRegioni/postiPrima >101){
+//console.log("Percentuale errata per terapiaIntensivaRegioni prima in riga " , riga , "per regione " , regione , "(" , tabellaRegioni[riga], "," ,terapiaIntensivaRegioni , "," , postiPrima , ")");
+						percentuale_terapia_Regioni_Prima[regione] = 0;
+					} else {
+						percentuale_terapia_Regioni_Prima[regione] = 100*terapiaIntensivaRegioni/postiPrima;
+					}
+
+					postiDopo = postiTIregioni[regione].prima + postiTIregioni[regione].aggiunti;
+					if (100*terapiaIntensivaRegioni/postiDopo >101){
+//console.log("Percentuale errata per terapiaIntensivaRegioni dopo in riga " , riga , "per regione " , regione , " (" , tabellaRegioni[riga], "," ,terapiaIntensivaRegioni , "," , postiDopo , ")");
+						percentuale_terapia_Regioni_Dopo[regione] = 0;
+					} else {
+						percentuale_terapia_Regioni_Dopo[regione] = 100*terapiaIntensivaRegioni/postiDopo;
+					}
+
+
+					tabellaRegioni[riga].push(guariti_su_ricoveratiRegioni);
+					tabellaRegioni[riga].push(guariti_su_mortiRegioni);
+					tabellaRegioni[riga].push(tamponi_giornalieriRegioni);
+					tabellaRegioni[riga].push(percentuale_positiviRegioni[regione]);
+					tabellaRegioni[riga].push(percentuale_testati_positiviRegioni[regione]);
+					tabellaRegioni[riga].push(percentuale_terapia_Regioni_Prima[regione]);
+					tabellaRegioni[riga].push(percentuale_terapia_Regioni_Dopo[regione]);
+
+				}				
+			}
+		}
+
+
+console.log("percentuale_positiviRegioni",percentuale_positiviRegioni);
+
+// Curve normalizzate:
+		tamponi_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+		for (riga=rigaHeader+1; riga < tabellaRegioni.length; riga++) {
+			for (regione = 0; regione < regioni.length; regione++) {
+				if (tabellaRegioni[riga][3] == regioni[regione]) {
+                    tamponiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"tamponi")]* 1.0;
+                    nuovi_positiviRegioni 	= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"nuovi_positivi")]* 1.0;
+                    tamponi_giornalieriRegioni = tamponiRegioni - tamponi_ieriRegioni[regione];
+                    PP = nuovi_positiviRegioni/tamponi_giornalieriRegioni;
+                    tot100000 = PP * 10000;
+					tabellaRegioni[riga].push(tot100000); //////////////////////////////////
+	                tamponi_ieriRegioni[regione] = tamponiRegioni;
+					datiRegioni[regioni[regione]].push(tabellaRegioni[riga]);
+				}
+			}
+		}
+	}
+
+
+	function nuoviDati() {
+		pulisci();
+        nuovoItalia = document.getElementById("listaDisponibiliItalia").selectedIndex;
+
+		mettiDatiInGrafici(nuovoItalia, 0 , 0 )
+	}
+
+	function manualItalia() {
+console.log("Aggiornamento manuale...");
+		regressionNextDaysCount = document.getElementById("futureItalia").value * 1.0;
+		nuoviDati();
+console.log("Fatto?");
+	}
+
+
+
+	function mettiDatiInGrafici(campoItalia,campo1, campo2) {
+console.log("Inserisco dati in grafico...", campoItalia, campo1, campo2);
+		pulisci();	
+		configItalia.options.title.text = "Italia - " + headerArray[campoItalia];
+		maxItalia = -1;
+		minItalia = 100000000;
+		for (rigaTabella=1; rigaTabella < tabella.length; rigaTabella++) {
+			giorno = tabella[rigaTabella][0];
+			numero = tabella[rigaTabella][campoItalia]*1.0;
+			if (numero > maxItalia) {
+                maxItalia = numero;
+			}
+			if (numero<minItalia) {
+                minItalia = numero;
+			}
+			coppia = {x : giorno, y : numero};
+			scDataItalia.datasets[0].data.push(coppia);
+		}
+
+		spnLast.innerHTML = "(" + coppia.x + "): <b><BIG><BIG><BIG>" + coppia.y.toFixed(1) + "</BIG></BIG></BIG></b>";
+    spnOggi.innerHTML = new Date();
+
+
+
+
+console.log("Calcolo regressione da " , regressionStartIndex , " fino a ", 	regressionEndIndex);	
+		//////////// Aggiunge dati di regressione alla fine /////
+		arrayForRegression = noDates(scDataItalia.datasets[0].data, regressionStartIndex, regressionEndIndex); // Converte in formato adatto alla libreria
+console.log("arrayForRegression",arrayForRegression);		
+		polyReg = regression("polynomial", arrayForRegression, 2); // calcola regressione plinomiale
+console.log("polyReg",polyReg);		
+		finalData = datesBack(polyReg, regressionStartIndex, scDataItalia.datasets[0].data, regressionNextDaysCount); // rimette in formato giusto per plotly
+console.log("finalData",finalData);		
+		scDataItalia.datasets[1].data = finalData; // aggiunge in fondo alla traccia (sostituendo traccia originale)
+
+		arrayForRegression2 = noDates(scDataItalia.datasets[0].data, regressionStartIndex, regressionEndIndex); // Converte in formato adatto alla libreria
+		linReg = regression("linear", arrayForRegression2); // calcola regressione plinomiale
+		finalData2 = datesBack(linReg, regressionStartIndex, scDataItalia.datasets[0].data, regressionNextDaysCount); // rimette in formato giusto per plotly
+		scDataItalia.datasets[2].data = finalData2; // aggiunge in fondo alla traccia (sostituendo traccia originale)
+		////////////////////////////////////////////////////////
+
+
+
+		configItalia.data = scDataItalia;
+
+		if (document.getElementById("autoZoomItalia").checked) {
+	        configItalia.options.scales.yAxes[0].ticks.min = minItalia;
+	        configItalia.options.scales.yAxes[0].ticks.max = maxItalia;
+	        document.getElementById("rngSliderItalia").value = maxItalia;
+		} else {
+			// no zoom
+		}
+
+		if (document.getElementById("manualDataItalia").checked) {
+	        configItalia.options.scales.yAxes[0].ticks.max = document.getElementById("maxZoomItalia").value;
+	        document.getElementById("rngSliderItalia").value = document.getElementById("maxZoomItalia").value;
+		} else {
+		//
+		}
+
+        document.getElementById("listaDisponibiliItalia").selectedIndex = campoItalia;
+
+
+console.log("Fatto.");	
+		window.chartItalia.update();	
+
+		document.getElementById("newstart").value = regressionStartIndex;
+		document.getElementById("newend").value = regressionEndIndex;
+		updateStart();
+		updateEnd();
+
+		regressionStartIndex = tabella.length-30;
+		regressionEndIndex =  tabella.length-1; // Resetta per permettere la lettura da textbox
+		document.getElementById("newstart").hidden=false
+		document.getElementById("newend").hidden=false
+		document.getElementById("newstartDate").hidden=false
+		document.getElementById("newendDate").hidden=false
+		document.getElementById("btnstartdown").hidden=false
+		document.getElementById("btnstartup").hidden=false
+		document.getElementById("btnenddown").hidden=false
+		document.getElementById("btnendup").hidden=false
+		document.getElementById("btnRefreshItalia").hidden=false
+
+	}
+	
+
+
+	function noDates(oldArray, position, maxVal) {
+		// Converte l'array dal formato plotly (array di oggetti-coppia) al formato della libreria (array di array bidimensionali)
+	    // Calcola dati di regressione a partire da un certo punto dei dati (position)
+	    
+	    // oldArray: dati su cui calcolare regressione
+	    // position: posizione iniziale da cui partire con calcolo regressione
+	    // maxVal: posizione finale (al massimo la lunghezza dell'array originale)
+		newArray = []
+		for (ind = position ; ind < maxVal /*oldArray.length*/ ; ind++) {
+	        newArray.push([ind, oldArray[ind].y])
+		}
+		return newArray;
+	}
+
+
+	function datesBack(processedArray, position, oldArray, newDataCount) {
+		// Aggiunge dati futuri a traccia e riconverte array da formato-libreria a formato plotly
+		
+		// processedArray: risultato dell'algoritmo di regressione
+		// position: fino a POSITION restituisce i vecchi valori; successivamente restituisce quelli di regressione
+		// oldArray: dati originali senza regressione
+		// newDataCount: numero di valori da aggiungere dopo POSITION
+	
+		newArray = []
+
+		// Sostituzione valori fino ad oggi:
+		for (ind = 0 ; ind < position /*oldArray.length*/; ind++) {
+	        	newArray.push({x:  oldArray[ind].x, y: oldArray[ind].y}); // fino alla proposizione precedente all'elaborazione, mette dati vecchi
+		}
+
+		// L'array originale arrivava fino alla data specificata (tipicamente la data odierna); dal giorno dopo in poi aggiungo i dati futuri ipotizzati
+		lastDate = new Date(oldArray[ind - 1].x);
+		for (x =  position ; x < oldArray.length + newDataCount; x++) {
+			if (processedArray.equation.length == 3 ) {
+				y = newY(processedArray.equation,x);
+			} else {
+				y = newYLin(processedArray.equation,x); // Bug in linear regression: coefficients inverted!
+			}
+			lastDateMS = new Date(lastDate).getTime();
+			newDateMS = lastDateMS + 86400000;
+			newDateJS = new Date(newDateMS);
+			newDate = newDateJS.toISOString();
+	        newArray.push({x:  newDate, y: y})
+			lastDate = newDate;
+		}
+
+		return newArray;
+	}
+
+
+	function newY(equation, x) {
+//console.log("Equzione = ", equation);
+		// Calcola valori futuri in base a equaziona calcolata dalla libreria
+		y = 0;
+		for (pos=0; pos < equation.length; pos++) {
+			coeff = equation[pos];
+			xfact = Math.pow(x,pos);
+			parzResult = coeff * xfact;
+//console.log(coeff , "*x^" , pos , " = " , coeff ,"*", xfact, " = ", parzResult);
+			y += parzResult;
+		}
+		return y;
+	}
+
+
+	function newYLin(equation, x) {
+//console.log("Equzione = ", equation);
+		// Calcola valori futuri in base a equaziona calcolata dalla libreria
+		y = 0;
+		for (pos=0; pos < equation.length; pos++) {
+			coeff = equation[1-pos];
+			xfact = Math.pow(x,pos);
+			parzResult = coeff * xfact;
+//console.log(coeff , "*x^" , pos , " = " , coeff ,"*", xfact, " = ", parzResult);
+			y += parzResult;
+		}
+		return y;
+	}
+
+
+
+
+	function pulisci() {
+		for (regione=0; regione < regioni.length; regione++) {
+			scDataItalia.datasets[0].data = [];	
+	
+		}
+	
+	}
+
+
+function zoomItalia(val) {
+    scale(val,0);
+    sliderItalia.value=val;
+}
+
+
+
+	function scale(scaleValue,chartNumber) {
+		if(chartNumber == 0) {
+console.log("scala=",scaleValue);		
+			configItalia.options.scales.yAxes[0].ticks.max = scaleValue;
+			if (chkZoomSimmetrico.checked == true) {
+				configItalia.options.scales.yAxes[0].ticks.min = -scaleValue;
+			} else {
+				configItalia.options.scales.yAxes[0].ticks.min = 0;
+			}
+			window.chartItalia.update();	
+		}
+		if(chartNumber == 1) {
+console.log("scala1=",scaleValue);
+			config1.options.scales.yAxes[0].ticks.max = scaleValue;
+			config1.options.scales.yAxes[0].ticks.min = 0;
+			window.chartRegioni1.update();	
+		}
+		if(chartNumber == 2) {
+console.log("scala2=",scaleValue);
+			config2.options.scales.yAxes[0].ticks.max = scaleValue;
+			config2.options.scales.yAxes[0].ticks.min = 0;
+			window.chartRegioni2.update();	
+		}
+				
+	}
+	
+
+function toggleDecretiItalia() {
+	for (i=3; i< scDataItalia.datasets.length; i++) {
+		if (scDataItalia.datasets[i].borderColor == "rgb(255,255,255)") {
+			scDataItalia.datasets[i].borderColor="rgb(0,0,0)"
+		} else {
+			scDataItalia.datasets[i].borderColor="rgb(255,255,255)"
+		}
+	}
+	window.chartItalia.update();	
+}	
+	
+	String.prototype.replaceAll = function(search, replacement) {
+	    var target = this;
+	    return target.split(search).join(replacement);
+	};
+	
+	function forzaAutozoom() {
+		configItalia.options.scales.yAxes[0].ticks.min = minItalia;
+		configItalia.options.scales.yAxes[0].ticks.max = maxItalia;
+		document.getElementById("rngSliderItalia").value = maxItalia;
+		window.chartItalia.update();
+	}
+
+   </script>
+   
+	<center><big><big><strong>Andamento coronavirus Italia</big></big></strong><br>
+	Dati: <a href="https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv">https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv</a><br>
+	<a href="https://github.com/pcm-dpc/COVID-19/raw/master/dati-regioni/dpc-covid19-ita-regioni.csv">https://github.com/pcm-dpc/COVID-19/raw/master/dati-regioni/dpc-covid19-ita-regioni.csv</a><br>
+	Elaborazione: Luca Cassioli<br>
+	Versione 2.2.1 - 12/01/2022<br>
+	<br><strong>
+	<span id="status" name="status"></span></center><br>
+	</strong>
+	<br>
+
+	<!--Premere il pulsante per aggiornare: <button onclick="down();"> Aggiorna </button> <b>Attendere almeno un minuto per l'elaborazione dei grafici</b><br>-->
+Altro sito con grafici percentuali: <a href="https://www.rainews.it/ran24/speciali/2020/covid19/">LINK sito Rai (cliccare su "positivi/test")</a><br>
+Vecchia pagina con grafici regionali (piu' lenta): <a href="grafici-ita.html">link</a><br>
+<br>
+<a href="https://ourworldindata.org/grapher/positive-rate-daily-smoothed?tab=chart&country=~ITA">Grafico percentuale di OurWorldInData ("positive rate")</a><br>
+<a href="https://ourworldindata.org/explorers/coronavirus-data-explorer?zoomToSelection=true&pickerSort=desc&pickerMetric=population&Metric=Reproduction+rate&Interval=Cumulative&Relative+to+Population=true&Align+outbreaks=false&country=ISR~ITA~GBR">Grafico Rt di OurWorldInData ("reproduction rate")</a><br>
+<a href="https://ourworldindata.org/explorers/coronavirus-data-explorer?zoomToSelection=true&pickerSort=desc&pickerMetric=population&Metric=People+vaccinated&Interval=Cumulative&Relative+to+Population=true&Align+outbreaks=false&country=ISR~GBR~ITA">Stato vaccinazioni</a><br>
+<a href="https://www.epimox.polimi.it/">Proiezioni future Epimox (Politecnico di Milano) (Cliccare su "modello matematico epidemiologico")</a><br>
+<br>
+	<center>
+<div style="width:1000px">
+	<canvas id="graficoItalia" name="graficoItalia" " ></canvas>
+</div>
+Ultimo dato <span id="spnLast" name="spnLast"> - </span><br>
+Oggi: <span id="spnOggi" name="spnOggi"> - </span><br>
+	Scala:
+	<span class="slidecontainerItalia" >
+  		<input type="range"   class="slider" id="rngSliderItalia" name = "rngSliderItalia" style="width:800px" step="10">
+	</span><br>
+</center>
+<br>
+	<button id="btnItalia10" name="btnItalia10" onclick="zoomItalia(10);">Zoom 10%</button>
+	<button id="btnItalia50" name="btnItalia50" onclick="zoomItalia(50);">Zoom 50%</button>
+	<button id="btnItalia100" name="btnItalia100" onclick="zoomItalia(100);">Zoom 100%</button><br>
+	Autozoom: <input type=checkbox id="autoZoomItalia" name="autoZoomItalia" checked="true">
+	<button id="btnFozrzaAutozoom" name="btnFozrzaAutozoom" onclick="forzaAutozoom()">Vai</button><br>
+
+	Zoom manuale: <input type="text" id="textZoom" name="textZoom" value="10"><button id="btnTextZoom" name="btnTextZoom" onclick="zoomItalia(textZoom.value*1);">Vai</button>
+    Zoom Simmetrico:<input type=checkbox id="chkZoomSimmetrico" name="chkZoomSimmetrico" checked="false"><br>
+	<br>
+   <input type="checkbox" id="chkLin" name="chkLin" checked="true" >Previsione lineare<br>
+    <input type="checkbox" id="chkNonLin" name="chkNonLin" checked="true" >Previsione non lineare <br>
+	<br>
+	<br>
+
+    <input type="checkbox" id="manualDataItalia" name="manualDataItalia" selected="false" >Manual data <br>
+ 	Max val: <input type="text" id="maxZoomItalia" name="maxZoomItalia" value="1000000"><br>
+	Future days: <input type="text" id="futureItalia" name="futureItalia" value="90"><br>
+    <button id="btnManualIta" name="btnManualIta" onclick="manualItalia();">Aggiorna manuale</button>
+	<br>
+	<br>
+	<br>
+
+	Campi disponibili grafico Italia:<br>
+
+
+	<span id="listaItalia" name ="listaItalia">
+	    <select id="listaDisponibiliItalia" onchange="nuoviDati()">
+
+		</select>
+	</span><br>
+	<br>
+	Inizio regressione: <input type="text" value = "210" id="newstart" name="newstart" onchange="updateStart()" hidden="true"> - <input type="text" value = "210" id="newstartDate" name="newstartDate" readonly=true  hidden="true">
+	<button id="btnstartdown" name="btnstartdown" onclick="document.getElementById('newstart').value = document.getElementById('newstart').value*1 - 1*1; updateStart();"  hidden="true">v</button>
+	<button id="btnstartup" name="btnstartup" onclick="document.getElementById('newstart').value = document.getElementById('newstart').value*1 + 1*1; updateStart();"  hidden="true">^</button>
+	<br>
+	Fine regressione: <input type="text" value = "250" id="newend" name="newend" onchange="updateEnd()"  hidden="true">- <input type="text" value = "250" id="newendDate" name="newendnewendDate" readonly=true  hidden="true"> 
+	<button id="btnenddown" name="btnenddown" onclick="document.getElementById('newend').value = document.getElementById('newend').value*1 - 1*1; updateEnd();"  hidden="true">v</button>
+	<button id="btnendup" name="btnendup" onclick="document.getElementById('newend').value = document.getElementById('newend').value*1 + 1*1; updateEnd();"  hidden="true">^</button>
+ <br>
+	<button id="btnRefreshItalia" name="btnRefreshItalia" onclick="regressionStartIndex=document.getElementById('newstart').value*1.0; regressionEndIndex=document.getElementById('newend').value*1.0; nuoviDati()"  hidden="true">Refresh</button><br><br><br>
+	<button id="btnDecretiItalia" name="btnDecretiItalia" onclick=toggleDecretiItalia()>Mostra/Nascondi DPCM</button>
+	<br>
+	<br>
+	<br>
+
+<div style="width:1000px">
+	<canvas id="graficoRegioni1" name="graficoRegioni1" ></canvas>
+	</div>
+
+
+
+<div style="width:1000px">
+	<canvas id="graficoRegioni2" name="graficoRegioni2" ></canvas>
+	</div>
+
+<script>
+function toggleLinear() {
+	console.log(chkLin.checked);
+	window.chartItalia.data.datasets[1].hidden = !chkLin.checked;
+  window.chartItalia.update();
+}
+
+function toggleNonLinear() {
+	console.log(chkNonLin.checked);
+	window.chartItalia.data.datasets[2].hidden = !chkNonLin.checked;
+  window.chartItalia.update();
+}
+
+
+chkLin.addEventListener("click", toggleLinear);
+chkLin.addEventListener("change", toggleLinear);
+chkNonLin.addEventListener("click", toggleNonLinear);
+chkNonLin.addEventListener("change", toggleNonLinear);
+</script>
+
+	</body>
+	

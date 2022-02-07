@@ -1,0 +1,521 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="generator" content="PSPad editor, www.pspad.com">
+  <title></title>
+   </head>
+  <body>
+  <script>
+// 4.3.0 - Risolto bug ultima regione mancante, risolto bug lentezza eccessiva (troppe chiamate a fillTable)
+// 4.2.0 - Aggiunta visualizzazione progressiva tabella, bypoassato errore file di input
+// 4.1.0 - Aggiunto fix per file di input troppo lungo; tento refresh pagina in tempo reale con setInterval ma non va.
+// 4.0.0 - Nuova versione basata su altro repository, che contiene tutti i dati
+// 3.0.0_beta1 - Cerco di usare comem fonte https://raw.githubusercontent.com/CloudItaly/Indice-RT/main/colori.json , con un elemento per ogni ordinanza.
+// 2.1 Aggiunto ordinamento nord-sud tabela
+// 2.0: Passato da file originale Protezione Civile a file derivato di "covid19Italia", che contiene solo colori senza perimetri regionali (70 KB vs 30 MB)
+
+  table = document.createElement("table");
+  table.setAttribute("border","0");
+  table.name = "tabella"
+  table.setAttribute("cellspacing","0");
+  table.cellspacing = "0";
+
+
+	debugDateJS =  new Date(2022,1,1);
+	debugDateNum = ((debugDateJS).getTime()/86400000).toFixed(0);
+
+	downloadedData = "";
+    numCells = 0;
+    numRows = 0;
+	numData = 0;
+    prevNumData = 0;
+	debugNumDataThreshold = 600; // Salta dati inutili di file di di inpu (causati da bug nel file di input stesso)
+	prevRegion = "nessuna";
+	finito = false;
+
+	var baseDate = new Date("2020-11-01");
+	startDateMS = baseDate.getTime();
+	baseYear = baseDate.getFullYear();
+	MULTI = 1;
+	MAXCELLS = 250; 	
+	MINCELLS = 40;
+	cellColor = "background-color:#000000";
+	dateSiNo = false;
+	riempi = false;
+	giorniSettimana = ["D" , "L", "M", "m", "G", "V", "S"]
+
+	ordineRegioniNordSud = [
+		"Intero territorio nazionale",
+		"Valle d'Aosta",
+		"Liguria",
+		"Piemonte",
+		"Veneto",
+		"Provincia autonoma Bolzano",
+		"Provincia autonoma Trento",
+		"Lombardia",
+		"Friuli Venezia Giulia",
+		"Emilia-Romagna",
+		"Toscana",
+		"Umbria",
+		"Marche",
+		"Abruzzo",
+		"Lazio",
+		"Molise",
+		"Campania",
+		"Calabria",
+		"Basilicata",
+		"Puglia",
+		"Sicilia",
+		"Sardegna"
+	];
+
+function loadJSON() {
+  const xObj = new XMLHttpRequest();
+  const link3 = "https://raw.githubusercontent.com/imcatta/restrizioni_regionali_covid/main/dataset.json";
+	xObj.overrideMimeType("application/json");
+
+	xObj.onreadystatechange = () => {
+	    if (xObj.readyState === 4 && xObj.status === 200) {
+	       // callback(xObj.responseText);
+	    }
+	};
+
+	xObj.onprogress = showDownloadProgress;
+
+	xObj.onloadend = function() {
+		document.getElementById("status").innerHTML = "Caricamento completato, elaborazione....";
+    	downloadedData = JSON.parse(xObj.response);
+
+		// Aggiunge regione dummy alla fine, altrimenti l'ultima non viene elaborata
+		downloadedData.push(
+            {
+			colore : "dummy",
+            data : "1900/01/01",
+            denominazione_regione: "end"
+			}
+		);
+
+		///////////// Crea tabella colori
+		row = document.createElement("tr");
+	    cell = document.createElement("td");
+	    cell.innerHTML = "00";
+	    row.appendChild(cell);
+	    table.appendChild(row); // Riga vuota, per retrocompatibilità grafica con vecchia pagina
+		table.border= "0";
+		document.getElementById("tab").innerHTML = table.outerHTML; // Agigunge tabella principale a documento
+		region = "nessuna";
+
+        // Chiama periodicamente routine di elaborazione in modo asincrono, così lo script non resta bloccato fino all'ultima regione ma solo
+		// finchè una regione non è finita. La routine stessa però disattiva subito l'asincronismo per evitare di essere richiamata prima di finire.
+		testVar = setInterval(fillTable,0);
+	}
+
+	xObj.onerror = function(event) {
+		console.log("***** PRELOAD 001err -  NETWORK ERROR");
+			document.getElementById("status").innerHTML = "** NETWORK ERROR**";
+	};
+
+	xObj.open('GET', link3, true);
+
+	xObj.send(null);
+}
+
+
+dataByRegion = [];
+regionNames = [];
+
+loadJSON();
+
+
+function showDownloadProgress(obj) {
+	L = obj.currentTarget.response.length;
+  	document.getElementById("status").innerHTML = "Downloading... " + L;
+}
+
+
+
+
+function mostraData(obj) {
+	document.getElementById("overdate").innerHTML = "<b>Data sotto puntatore mouse: " + obj + "<b>";
+}
+
+
+function fillTable() {
+
+	if (finito) {
+//		console.log("esco");
+		clearInterval(testVar);
+		finito = false;
+		return;
+	}
+
+
+	if (numData >= downloadedData.length) {
+//		console.log("FINE");
+		finito = true;
+		clearInterval(testVar);
+		return;
+	}
+
+//console.log("inizio ciclo regione...");
+	esci = false;
+	while ((numData < downloadedData.length) && (esci == false)){
+		var cell = document.createElement("td");
+		data = downloadedData[numData].data;
+		regionePrima = region;
+		region = downloadedData[numData].denominazione_regione;
+		color = downloadedData[numData].colore;
+		testDateJS =  new Date(data);
+		testDateNum = ((testDateJS).getTime()/86400000).toFixed(0);
+		if (testDateNum < debugDateNum) { // Sicurezza per evitare file di input infiniti...
+			// Inizio riempimento effettivo tabella
+			if (color == "giallo") { cellColor = "background-color:#FFFF00"};
+			if (color == "arancione") { cellColor = "background-color:#FFA500"};
+			if (color == "rosso") { cellColor = "background-color:#FF0000"};
+			if (color == "bianco") { cellColor = "background-color:#DDDDDD"};
+
+			cell.setAttribute("style",cellColor);
+			cell.setAttribute("onmouseover","mostraData('" + downloadedData[numData].data + "')");
+
+			if (region == prevRegion) {
+				row.appendChild(cell);
+				finito = false;
+				esci = false;
+			} else {
+				// Riga completata:
+//console.log("Regione completata (", regionePrima, "):", numData-prevNumData, numRows);
+				prevNumData = numData;
+				numCells = 0;
+                numRows++;
+				table.appendChild(row); // Aggiungi riga a tabella
+                document.getElementById("tab").innerHTML = table.outerHTML; // Agigunge tabella principale a documento
+                document.getElementById("status").innerHTML =  (100*(numData / downloadedData.length)).toFixed(0) + "%";
+				prevRegion = region;
+
+				row = document.createElement("tr"); // Nuova riga
+		        cell = document.createElement("td"); // Prima colonna (numero regione)
+		        cell.innerHTML = numeroRegione(region);
+				row.appendChild(cell); // Aggiungi cella a riga
+
+		        cell = document.createElement("td"); // Seconda colonna (nome regione)
+				cell.innerHTML = region;
+				cell.style = "white-space: nowrap;";
+				row.appendChild(cell); // Aggiungi cella a riga
+				finito = true;
+				esci = true;
+			}
+		} else {
+//console.log("Salto data " + data + " per " + region);
+		}
+
+	 	numCells++;
+        numData++;
+	}
+//console.log("Uscito da ciclo regione ", region);
+	if (numData < downloadedData.length) {
+//console.log("Pero' devo continuare...");
+		finito = false;
+		esci = false;
+		testVar = setInterval(fillTable,0);
+	} else {
+	console.log("Terminato");
+		table.id = "tabella";
+		document.getElementById("tab").innerHTML = table.outerHTML; // Agigunge tabella principale a documento
+	  sortTable(document.getElementById("tabella"));
+    	clearInterval(testVar);
+		esci = true;
+		finito = true;
+		document.getElementById("status").innerHTML = "";
+	}
+}
+
+function addRegion(name) {
+	// Prepare reference array containing names of all regions mentioned in DB
+	exists = false;
+	for (var i=0; i < regionNames.length; i++) {
+		if (regionNames[i] == name) exists = true;
+	}
+	if (!exists) regionNames.push(name);
+}
+
+
+function addRegionData(region, zone, start, end, link1, link2) {
+	// Separate data by region
+	// At each call, parse the whole alredy existing data in dataByRegionArray: if a region already exists, add data end exit
+	startDateJS =  new Date(Number(start.substring(6, 10)),  Number(start.substring(3, 5))-1,   Number(start.substring(0, 2)) );
+	startNum = ((startDateJS).getTime()/86400000).toFixed(0);
+	if (startNum > debugDateNum) return; // Esce se ci sono dati successivi a una certa data.
+	endDateJS =  new Date(Number(end.substring(6, 10)),  Number(end.substring(3, 5))-1,   Number(end.substring(0, 2)) );
+	endNum = ((endDateJS).getTime()/86400000).toFixed(0);
+
+	if (zone == "R") zone = "art.3";
+	if (zone == "A") zone = "art.2";
+	if (zone == "G") zone = "art.1";
+	if (zone == "B") zone = "art.1 comma 11";
+
+	// Parse existing data, add element id region does not already exist
+	for (var i=0; i < dataByRegion.length; i++) {
+		if (dataByRegion[i].name == region) {
+			// Pre-existing region, afill-in data and exit:
+			dataByRegion[i].data.push({
+				"color": zone,
+				"startDate" : start,
+				"endDate" : end,
+				"startDateDays" : startNum,
+				"endDateDays" : endNum,
+				"link1" : link1,
+				"link2" : link2,
+			});
+			return; // new region added, exit.
+		}
+	}
+
+	// If after array parsing it results that the region is new, add a new element for the region, then put data in it:
+	dataByRegion.push(
+	{
+		"name" : region,
+		"data" : [
+		]
+	},
+	);
+
+	// Put the region data in the just added element:
+	dataByRegion[dataByRegion.length-1].data.push(
+		{
+			"color": zone,
+			"startDate" : start,
+			"endDate" : end,
+			"startDateDays" : startNum,
+			"endDateDays" : endNum,
+			"link1" : link1,
+			"link2" : link2,
+		});
+	return;
+
+}
+
+function lead0(num) {
+	if(num<10) return "0" + num;
+	return num;
+}
+
+function toggleDates() {
+	dateSiNo = !dateSiNo;
+	cambiaIntestazione(dateSiNo)
+}
+
+function cambiaIntestazione(mettiDate) {
+console.log("Cambio: " + mettiDate);
+	for (var numCells = 0; numCells <  MAXCELLS; numCells++) {
+		dateOfNumCells = startDateMS + (numCells+1) * MULTI * 86400000;
+		dateOfNumCellsJS = new Date(dateOfNumCells);
+		currentYear = dateOfNumCellsJS.getFullYear();
+		if(currentYear > baseYear) {
+			baseYear = currentYear; // Nuovo anno di riferimento
+		}
+
+		if (numCells == 0) {
+		} else {
+			if (numCells > 0) {
+				if (mettiDate) {
+					document.getElementById("td_" + numCells).innerHTML = giorniSettimana[dateOfNumCellsJS.getDay()] + "<br>" + lead0(dateOfNumCellsJS.getDate()) + "<br>" + lead0(dateOfNumCellsJS.getMonth()+1 ) + "<br>" + (currentYear-2000);
+				} else {
+					document.getElementById("td_" + numCells).innerHTML = "";
+				}
+			}
+		}
+	}
+	if (mettiDate) {
+		document.getElementById("tabella").border=1;
+	} else {
+		document.getElementById("tabella").border=0;
+	}
+}
+
+
+function creaIntestazione(mettiDate) {
+	////////// Crea riga di intestazione tabella:
+	headerRow = document.createElement("tr");
+	for (var numCells = 0; numCells <  MAXCELLS; numCells++) {
+		dateOfNumCells = startDateMS + (numCells+1) * MULTI * 86400000;
+		dateOfNumCellsJS = new Date(dateOfNumCells);
+		currentYear = dateOfNumCellsJS.getFullYear();
+		if(currentYear > baseYear) {
+			baseYear = currentYear; // Nuovo anno di riferimento
+		}
+		var cell = document.createElement("td");
+		if (numCells == 0) {
+			cell.setAttribute("id","prima");
+			cell.setAttribute("name","prima");
+			cell.setAttribute("style","white-space:nowrap");
+			headerRow.appendChild(cell);
+		} else {
+			if (numCells > 0) {
+				cell.id = "td_" + numCells;
+				cell.name = "td_" + numCells;
+				if (mettiDate) {
+console.log((dateOfNumCellsJS.getDate()).getDay(), giorniSettimana[(dateOfNumCellsJS.getDate()).getDay()]);
+					cell.innerHTML = giorniSettimana[(dateOfNumCellsJS.getDate()).getDay()] + "<br>" + lead0(dateOfNumCellsJS.getDate()) + "<br>" + lead0(dateOfNumCellsJS.getMonth()+1 ) + "<br>" + (currentYear-2000);
+				} else {
+					cell.innerHTML = "";
+				}
+				headerRow.appendChild(cell);
+			}
+		}
+	}
+	table.appendChild(headerRow);
+	if (mettiDate) {
+		table.border=1;
+	} else {
+		table.border=0;
+	}
+}
+
+function toggleRiempi() {
+	riempi = !riempi;
+	if (riempi) {
+		 riempiVuoti();
+	} else {
+		riSvuota();
+	}
+}
+
+function riempiVuoti() {
+// Colora le caselle bianche, che non sono incluse in nessun intervallo di date
+	tbl = document.getElementById("tabella");
+	numRighe = tbl.rows.length;
+	for (rowIndex = 1; rowIndex < numRighe; rowIndex++) {
+		prevCol = "#FFFFFF"; // Ogni riga inizia comunque col bianco
+		riga = tbl.rows[rowIndex];
+		numColonne = riga.children.length;
+		for (colIndex = 1; colIndex < numColonne; colIndex++) {
+			if (riga.children[colIndex].style.backgroundColor == "") {
+				riga.children[colIndex].style.backgroundColor = prevCol;
+				riga.children[colIndex].id = "delme"; // Marker per caselle riempite a mano
+			} else {
+				prevCol = riga.children[colIndex].style.backgroundColor;
+			}
+		}
+	}
+}
+
+
+function riSvuota() {
+// Svuota caselle colorate a mano
+	tbl = document.getElementById("tabella");
+	numRighe = tbl.rows.length;
+	for (rowIndex = 0; rowIndex < numRighe; rowIndex++) {
+		riga = tbl.rows[rowIndex];
+		numColonne = riga.children.length;
+		for (colIndex = 1; colIndex < numColonne; colIndex++) {
+			if (riga.children[colIndex].id == "delme") { // Se colorata a mano, svuota e toglie marker
+				riga.children[colIndex].style.backgroundColor = "";
+				riga.children[colIndex].id = "";
+			} else {
+				//
+			}
+		}
+	}
+}
+
+function numeroRegione(name) {
+	var regionNumber = -1
+	for (var ind = 0; ind < ordineRegioniNordSud.length; ind++) {
+		if (name == ordineRegioniNordSud[ind]) {
+			if (ind <10) return "0" + ind;
+			return ind;
+		}
+	}
+	return regionNumber; // -1 se non trova la regione (errore)
+}
+
+
+
+function sortTable(tableToSort) {
+// https://www.w3schools.com/howto/howto_js_sort_table.asp
+  var rows, switching, i, x, y, shouldSwitch;
+  switching = true;
+  /* Make a loop that will continue until
+  no switching has been done: */
+  while (switching) {
+    // Start by saying: no switching is done:
+    switching = false;
+    rows = tableToSort.rows;
+    /* Loop through all table rows (except the
+    first, which contains table headers): */
+    for (i = 1; i < (rows.length - 1); i++) {
+      // Start by saying there should be no switching:
+      shouldSwitch = false;
+      /* Get the two elements you want to compare,
+      one from current row and one from the next: */
+      x = rows[i].getElementsByTagName("TD")[0];
+      y = rows[i + 1].getElementsByTagName("TD")[0];
+      // Check if the two rows should switch place:
+      if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+        // If so, mark as a switch and break the loop:
+        shouldSwitch = true;
+        break;
+      }
+    }
+    if (shouldSwitch) {
+      /* If a switch has been marked, make the switch
+      and mark that a switch has been done: */
+      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+      switching = true;
+    }
+  }
+}
+
+
+//init();
+</script>
+<center><big><big><big>Storico colorazione regioni (restrizioni COVID-19)</big></big></big><br>
+v.4.3 - 2021-07-06<br>
+Vecchie pagine: <a href="grafico-colori-regioni-covid-zone-210.html">link1</a>, <a href="grafico-colori-regioni-covid-zone.html">link2</a><br>
+
+<span id="status" name="status">-</span><br></center>
+<br>
+<br>
+<!--<button id="btnDates" name="btnDates" onclick="alert('Non implementato');/*toggleDates();*/">mostra/nascondi date</button>-->
+<!--<button id="btnFill" name="btnFill" onclick="toggleRiempi();">Riempi/svuota</button>-->
+<br>
+<span id="tab" name="tab">
+	<table id="tabella" name="tabella">
+		<tbody><tr><td><big><big><big>loading...</big></big></big></td></tr></tbody>
+	</table>
+</span>
+<br>
+<span id="overdate" name="overdate">-</span><br>
+<br><br><br>
+
+<s>Vecchi dati: <a href="https://github.com/ondata/covid19italia/tree/master/webservices/COVID-19Aree/processing">Link</a>. File <a href="">"areeStorico.json"</a>, gentilmente messo a disposizione del pubblico da <a href="https://github.com/ondata">onData</a></s>Vecchia pagina: <a href="grafico-colori-regioni-covid-zone-210.html">link</a><br>
+Dati: <a href="https://github.com/imcatta/restrizioni_regionali_covid/blob/main/dataset.json">Link</a>. File <a href="https://raw.githubusercontent.com/imcatta/restrizioni_regionali_covid/main/dataset.json">"dataset.json"</a>, gentilmente messo a disposizione del pubblico da <a href="https://github.com/imcatta/">utente Imcatta</a><br>
+<br>
+Pagine basate su altri repository:<br>
+<ul>
+<li><a href="https://win98.altervista.org/coronavirus/grafico-colori-regioni-covid-zone-210.html">Variante 2</a> - Repository &quot;<a href="">covid19italia&quot; - Dati openData</a>
+<li><a href="https://win98.altervista.org/coronavirus/grafico-colori-regioni-covid-zone.html">Variante 3</a> - Repository &quot;<a href="https://github.com/CloudItaly/Indice-RT/">Indice-RT&quot; - dati CloudItaly</a>
+</ul>
+<br>
+
+
+<br>
+Riferimenti normativi:<br>
+<ul>
+<li><a href="https://www.openpolis.it/coronavirus-lelenco-completo-degli-atti/">Elenco provvedimenti COVID-19 (Openpolis.it)</a>
+</li><li><a href="https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg">DPCM istituzione colori per regioni (03/11/2020)</a>:
+<ul><li> Zona bianca: art. 1, comma 11
+</li><li> Zona gialla: art. 1
+</li><li> Zona arancione: art. 2
+</li><li> Zona rossa: art. 3
+</li></ul></li></ul>
+ <br>
+ Repository di github con dati storici sulle zone/colori delle regioni:<br>
+ <ul>
+<li><a href="https://github.com/pcm-dpc/COVID-19"><b>Dati ufficiali Protezione civile</b></a> (<a href="https://github.com/pcm-dpc/COVID-19/tree/master/aree/geojson">File (30MB zip, 180 MB unzippato))</a> - Dati ufficiali di Staato
+<li><a href="https://github.com/ondata/covid19italia/blob/master/webservices/COVID-19Aree/processing/">covid19italia</a> (<a href="https://raw.githubusercontent.com/ondata/covid19italia/master/webservices/COVID-19Aree/processing/areeStorico.csv">file</a>) - Estratto del file della protezione civile, coi soli colori
+<li><a href="https://github.com/CloudItaly/Indice-RT/">CloudItaly</a> (<a href="https://raw.githubusercontent.com/CloudItaly/Indice-RT/main/colori.json">file</a>) - File json ragguppato per ordinanze, parte da gennaio 2021
+<li><a href="https://github.com/imcatta/restrizioni_regionali_covid/">imcatta</a> (<a href="https://raw.githubusercontent.com/imcatta/restrizioni_regionali_covid/main/dataset.csv">file</a>) - file CSV ordinato per regione, parte dall'inizio (nov 2020)
+</ul>
+
+</body></html>

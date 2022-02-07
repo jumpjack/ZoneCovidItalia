@@ -1,0 +1,421 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="generator" content="PSPad editor, www.pspad.com">
+  <title></title>
+   </head>
+  <body>
+  <script>
+// 2.1 Aggiunto ordinamento nord-sud tabela
+// 2.0: Passato da file originale Protezione Civile a file derivato di "covid19Italia", che contiene solo colori senza perimetri regionali (70 KB vs 30 MB)
+
+  table = document.createElement("table");
+  table.setAttribute("border","0");
+  table.name = "tabella"
+  table.setAttribute("cellspacing","0");
+  table.cellspacing = "0";
+
+	var baseDate = new Date("2020-11-01");
+	startDateMS = baseDate.getTime();
+	baseYear = baseDate.getFullYear();
+	MULTI = 1;
+	MAXCELLS = 250; 	
+	MINCELLS = 40;
+	cellColor = "background-color:#000000";
+	dateSiNo = false;
+	riempi = false;
+	giorniSettimana = ["D" , "L", "M", "m", "G", "V", "S"]
+
+	ordineRegioniNordSud = [
+		"Intero territorio nazionale",
+		"Valle d'Aosta",
+		"Liguria",
+		"Piemonte",
+		"Veneto",
+		"Provincia autonoma Bolzano",
+		"Provincia autonoma Trento",
+		"Lombardia",
+		"Friuli Venezia Giulia",
+		"Emilia-Romagna",
+		"Toscana",
+		"Umbria",
+		"Marche",
+		"Abruzzo",
+		"Lazio",
+		"Molise",
+		"Campania",
+		"Calabria",
+		"Basilicata",
+		"Puglia",
+		"Sicilia",
+		"Sardegna"
+	];
+	
+const loadJSON = (callback) => {
+  const xObj = new XMLHttpRequest();
+  xObj.overrideMimeType("application/json");
+  // 1. replace './data.json' with the local path of your file
+  xObj.open('GET', "https://raw.githubusercontent.com/ondata/covid19italia/master/webservices/COVID-19Aree/processing/areeStorico.json"/*'./dpc-covid-19-aree-nuove-g.json'*/, true);
+  xObj.onreadystatechange = () => {
+      if (xObj.readyState === 4 && xObj.status === 200) {
+          // 2. call your callback function
+          callback(xObj.responseText);
+      }
+  };
+  xObj.send(null);
+}
+
+dataByRegion = [];
+regionNames = [];
+
+const init = () => {
+  loadJSON((response) => {
+      data = JSON.parse(response);
+console.log(data);
+      regionsData = data;
+console.log(regionsData);      
+      for ( var i=0; i < regionsData.length; i++) {
+      	addRegion(regionsData[i].nomeTesto);
+      }
+
+console.log(regionNames);
+
+creaIntestazione(dateSiNo);
+    
+	///////// Crea array di dati diviso per regioni:		  
+    for (var i = 0; i < regionsData.length; i++) {      
+    	startDate = regionsData[i].datasetIni;
+    	endDate = regionsData[i].datasetFin;
+    	addRegionData(regionsData[i].nomeTesto, regionsData[i].legSpecRif, startDate, endDate, regionsData[i].legGU_Link, regionsData[i].legLink)
+    }
+console.log(dataByRegion);    
+	////////////////
+	
+	///////////// Crea tabella colori
+	for (var numRows = 0; numRows < regionNames.length;  numRows++) {
+	  row = document.createElement("tr");
+		for (var numCells = 0; numCells < MAXCELLS; numCells++) {
+		  var cell = document.createElement("td");
+			if (numCells == 0) {
+console.log(numeroRegione(dataByRegion[numRows].name));
+		  	cell.innerHTML = numeroRegione(dataByRegion[numRows].name);
+			}
+		  if (numCells == 1) { // Scrive nomi regioni in prima colonna
+		  	cell.innerHTML = dataByRegion[numRows].name;
+		  	cell.style = "white-space: nowrap;";
+		   }
+			if (numCells>1) { // Nelle altre colonne non scrive niente ma imposta il colore di sfondo in base alla zona
+		   	//cell2.style = "height:10px";
+				offsetWeeksMS = numCells * MULTI * 86400000;
+				currentDateDAYS  = (startDateMS + offsetWeeksMS) / 86400000;
+				regData =  dataByRegion[numRows].data;
+				for (var index=0; index < regData.length; index++) {
+//console.log(numCells,   regData[index].startDateDays, currentDateDAYS , regData[index].endDateDays)			
+					regionStartDate = regData[index].startDateDays;
+					regionEndDate = regData[index].endDateDays;
+					if (regionEndDate <0) { // A volte la data di fine provvedimento manca
+//console.log("Manca fine per " + 		dataByRegion[numRows].name + ", inizio = " + regionStartDate + ", fine= " + regionEndDate);			
+						regionEndDate = currentDateDAYS+1;
+						if (regionStartDate <= currentDateDAYS) {
+//console.log(">>>>>>>>>>>>>>>>", numCells,  dataByRegion[numRows].name, regData[index].startDateDays, currentDateDAYS , regData[index].endDateDays, regData[index].color)	;
+							color = regData[index].color;
+							if (color == "art.1") { cellColor = "background-color:#FFFF00"};
+							if (color == "art.2") { cellColor = "background-color:#FFA500"};
+							if (color == "art.3") { cellColor = "background-color:#FF0000"};
+							if (color == "art.1 comma 11") { cellColor = "background-color:#DDDDDD"};
+							cell.setAttribute("style",cellColor);	
+							//cell.innerHTML = "<a href='" + regData[index].link1 +  "'>*</a><a href='" + regData[index].link2 +  "'>*</a>";		// debug atti normativi	
+						} else {
+								//cell.innerHTML = "**";
+							//cellColor = "background-color:#000000";
+							//cell.setAttribute("style",cellColor);
+						}					
+					} else  {
+						if ((regionStartDate <= currentDateDAYS) && (currentDateDAYS < regionEndDate)) {
+//console.log(">>>>>>>>>>>>>>>>", numCells,  dataByRegion[numRows].name, regData[index].startDateDays, currentDateDAYS , regData[index].endDateDays, regData[index].color)	;
+							color = regData[index].color;
+							cellColor = "background-color:#000000";
+							if (color == "art.1") { cellColor = "background-color:#FFFF00"};
+							if (color == "art.2") { cellColor = "background-color:#FFA500"};
+							if (color == "art.3") { cellColor = "background-color:#FF0000"};
+							if (color == "art.1 comma 11") { cellColor = "background-color:#FFFFDD"};
+							cell.setAttribute("style",cellColor);	
+							//cell.innerHTML = "<a href='" + regData[index].link1 +  "'>*</a><a href='" + regData[index].link2 +  "'>*</a>";  // debug atti normativi			
+						} else {
+							//cell.innerHTML = "**";
+							//cellColor = "background-color:#000000";
+							//cell.setAttribute("style",cellColor);
+						}
+					} 
+
+				}
+			}
+			
+			row.appendChild(cell);				
+		}	
+		table.appendChild(row);
+	}
+
+	table.id = "tabella";
+	document.getElementById("tab").innerHTML = table.outerHTML; // Agigunge tabella principale a documento
+  sortTable(document.getElementById("tabella"));
+
+ 
+  });
+}
+
+function addRegion(name) {
+	// Prepare reference array containing names of all regions mentioned in DB
+	exists = false;
+	for (var i=0; i < regionNames.length; i++) {
+		if (regionNames[i] == name) exists = true;
+	}
+	if (!exists) regionNames.push(name);
+}
+
+
+function addRegionData(region, zone, start, end, link1, link2) {
+	// Separate data by region
+	startDateJS =  new Date(Number(start.substring(6, 10)),  Number(start.substring(3, 5))-1,   Number(start.substring(0, 2)) ); 
+	startNum = ((startDateJS).getTime()/86400000).toFixed(0);		
+	endDateJS =  new Date(Number(end.substring(6, 10)),  Number(end.substring(3, 5))-1,   Number(end.substring(0, 2)) ); 
+	endNum = ((endDateJS).getTime()/86400000).toFixed(0);		
+	for (var i=0; i < dataByRegion.length; i++) {	
+		if (dataByRegion[i].name == region) {		
+			dataByRegion[i].data.push({
+				"color": zone,
+				"startDate" : start,
+				"endDate" : end,
+				"startDateDays" : startNum,
+				"endDateDays" : endNum,
+				"link1" : link1,
+				"link2" : link2,
+			});			
+			return;
+		}
+	}
+			
+	dataByRegion.push(
+	{
+		"name" : region,
+		"data" : [
+		]
+	},
+	);
+	
+	dataByRegion[dataByRegion.length-1].data.push( 
+		{
+			"color": zone,
+			"startDate" : start,
+			"endDate" : end,
+			"startDateDays" : startNum,
+			"endDateDays" : endNum,
+			"link1" : link1,
+			"link2" : link2,
+		});			
+	return;
+		
+}
+
+function lead0(num) {
+	if(num<10) return "0" + num;
+	return num;
+}
+
+function toggleDates() {
+	dateSiNo = !dateSiNo;
+	cambiaIntestazione(dateSiNo)
+}
+
+function cambiaIntestazione(mettiDate) {
+console.log("Cambio: " + mettiDate);
+	for (var numCells = 0; numCells <  MAXCELLS; numCells++) {
+		dateOfNumCells = startDateMS + (numCells+1) * MULTI * 86400000;
+		dateOfNumCellsJS = new Date(dateOfNumCells);
+		currentYear = dateOfNumCellsJS.getFullYear();		
+		if(currentYear > baseYear) { 
+			baseYear = currentYear; // Nuovo anno di riferimento
+		}
+
+		if (numCells == 0) {
+		} else {
+			if (numCells > 0) {
+				if (mettiDate) {	
+					document.getElementById("td_" + numCells).innerHTML = giorniSettimana[dateOfNumCellsJS.getDay()] + "<br>" + lead0(dateOfNumCellsJS.getDate()) + "<br>" + lead0(dateOfNumCellsJS.getMonth()+1 ) + "<br>" + (currentYear-2000);
+				} else {
+					document.getElementById("td_" + numCells).innerHTML = "";
+				}
+			}
+		}
+	}
+	if (mettiDate) {	
+		document.getElementById("tabella").border=1;
+	} else {	
+		document.getElementById("tabella").border=0;
+	}
+}
+
+
+function creaIntestazione(mettiDate) {
+	////////// Crea riga di intestazione tabella:
+	headerRow = document.createElement("tr");
+	for (var numCells = 0; numCells <  MAXCELLS; numCells++) {
+		dateOfNumCells = startDateMS + (numCells+1) * MULTI * 86400000;
+		dateOfNumCellsJS = new Date(dateOfNumCells);
+		currentYear = dateOfNumCellsJS.getFullYear();		
+		if(currentYear > baseYear) { 
+			baseYear = currentYear; // Nuovo anno di riferimento
+		}
+		var cell = document.createElement("td");
+		if (numCells == 0) {
+			cell.setAttribute("id","prima");
+			cell.setAttribute("name","prima");
+			cell.setAttribute("style","white-space:nowrap");
+			headerRow.appendChild(cell);		
+		} else {
+			if (numCells > 0) {
+				cell.id = "td_" + numCells;		
+				cell.name = "td_" + numCells;	
+				if (mettiDate) {	
+console.log((dateOfNumCellsJS.getDate()).getDay(), giorniSettimana[(dateOfNumCellsJS.getDate()).getDay()]);				
+					cell.innerHTML = giorniSettimana[(dateOfNumCellsJS.getDate()).getDay()] + "<br>" + lead0(dateOfNumCellsJS.getDate()) + "<br>" + lead0(dateOfNumCellsJS.getMonth()+1 ) + "<br>" + (currentYear-2000);
+				} else {
+					cell.innerHTML = "";
+				}
+				headerRow.appendChild(cell);
+			}
+		}
+	}
+	table.appendChild(headerRow);
+	if (mettiDate) {
+		table.border=1;
+	} else {
+		table.border=0;
+	}	
+}
+   
+function toggleRiempi() {
+	riempi = !riempi;
+	if (riempi) {
+		 riempiVuoti();
+	} else {
+		riSvuota();
+	}
+}
+   
+function riempiVuoti() {
+// Colora le caselle bianche, che non sono incluse in nessun intervallo di date
+	tbl = document.getElementById("tabella");
+	numRighe = tbl.rows.length;
+	for (rowIndex = 1; rowIndex < numRighe; rowIndex++) {
+		prevCol = "#FFFFFF"; // Ogni riga inizia comunque col bianco
+		riga = tbl.rows[rowIndex];
+		numColonne = riga.children.length;
+		for (colIndex = 1; colIndex < numColonne; colIndex++) {		
+			if (riga.children[colIndex].style.backgroundColor == "") {
+				riga.children[colIndex].style.backgroundColor = prevCol;
+				riga.children[colIndex].id = "delme"; // Marker per caselle riempite a mano
+			} else {
+				prevCol = riga.children[colIndex].style.backgroundColor;
+			}
+		}
+	}
+}
+
+
+function riSvuota() {
+// Svuota caselle colorate a mano
+	tbl = document.getElementById("tabella");
+	numRighe = tbl.rows.length;
+	for (rowIndex = 0; rowIndex < numRighe; rowIndex++) {
+		riga = tbl.rows[rowIndex];
+		numColonne = riga.children.length;
+		for (colIndex = 1; colIndex < numColonne; colIndex++) {
+			if (riga.children[colIndex].id == "delme") { // Se colorata a mano, svuota e toglie marker
+				riga.children[colIndex].style.backgroundColor = "";
+				riga.children[colIndex].id = "";
+			} else {
+				//
+			}
+		}
+	}
+}
+
+function numeroRegione(name) {
+	var regionNumber = -1
+	for (var ind = 0; ind < ordineRegioniNordSud.length; ind++) {
+		if (name == ordineRegioniNordSud[ind]) {
+			if (ind <10) return "0" + ind;
+			return ind;
+		}
+	}
+	return regionNumber; // -1 se non trova la regione (errore)
+}
+
+function sortTable(tableToSort) {
+// https://www.w3schools.com/howto/howto_js_sort_table.asp
+  var rows, switching, i, x, y, shouldSwitch;
+  switching = true;
+  /* Make a loop that will continue until
+  no switching has been done: */
+  while (switching) {
+    // Start by saying: no switching is done:
+    switching = false;
+    rows = tableToSort.rows;
+    /* Loop through all table rows (except the
+    first, which contains table headers): */
+    for (i = 1; i < (rows.length - 1); i++) {
+      // Start by saying there should be no switching:
+      shouldSwitch = false;
+      /* Get the two elements you want to compare,
+      one from current row and one from the next: */
+      x = rows[i].getElementsByTagName("TD")[0];
+      y = rows[i + 1].getElementsByTagName("TD")[0];
+      // Check if the two rows should switch place:
+      if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+        // If so, mark as a switch and break the loop:
+        shouldSwitch = true;
+        break;
+      }
+    }
+    if (shouldSwitch) {
+      /* If a switch has been marked, make the switch
+      and mark that a switch has been done: */
+      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+      switching = true;
+    }
+  }
+}
+
+
+init();
+</script>
+<center><big><big><big>Storico colorazione regioni (restrizioni COVID-19)</big></big></big><br>
+v.2.0 - 2021-05-10<br>
+Vedi anche <a href="grafico-colori-regioni-covid-zone.html"> nuova versione</a><br></center>
+<br>
+<br>
+<button id="btnDates" name="btnDates" onclick="toggleDates();">mostra/nascondi date</button>
+<button id="btnFill" name="btnFill" onclick="toggleRiempi();">Riempi/svuota</button>
+<br>
+<span id="tab" name="tab">
+	<table id="tabella" name="tabella">
+		<tbody><tr><td><big><big><big>loading...</big></big></big></td></tr></tbody>
+	</table>
+</span>
+<br><br><br>
+
+<a href="https://github.com/ondata/covid19italia/tree/master/webservices/COVID-19Aree/processing">Link a fonte dati (file "areeStorico.json"</a>, gentilmente messo a disposizione del pubblico da <a href="https://github.com/ondata">onData</a>)<br>
+<br>
+Riferimenti normativi:<br>
+<ul>
+<li><a href="https://www.openpolis.it/coronavirus-lelenco-completo-degli-atti/">Elenco provvedimenti COVID-19 (Openpolis.it)</a>
+</li><li><a href="https://www.gazzettaufficiale.it/eli/id/2020/11/04/20A06109/sg">DPCM istituzione colori per regioni (03/11/2020)</a>:
+<ul><li> Zona bianca: art. 1, comma 11
+</li><li> Zona gialla: art. 1
+</li><li> Zona arancione: art. 2
+</li><li> Zona rossa: art. 3
+</li></ul></li></ul>
+  
+
+</body></html>

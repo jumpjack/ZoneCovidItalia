@@ -1,0 +1,798 @@
+<html>
+<!--
+3.1.2 - Regressione da un mese prima, una settimana prima non è affidabile
+3.1.1 - Regressione ora parte sempre da una settimana prima
+3.1.0 - Ripulito codice; implementato filtro per dati sbagliati; aggiunto progresso almeno in console; aggiunte opzioni MAX e MAX2 per percentuali e altri dati
+3.0.0- Aggiunti morti e riordinati grafici, eliminati grafici grandi
+2.0.0 - Grafici istantanei per tutte le regioni
+1.6.0 - Ridimensionati grafici e aggiunte linee dei DPCM
+1.5.2 - Corretto bug di dati ultimo giorno mancanti per Italia
+1.5.1 - Aggiunti dati ulteriori anche per regioni
+1.5.0 - Aggiunta checkbox autozoom per italia e regioni; aggiunti calcoli terapia intensiva per italia, predisposti per regioni
+1.4.0 - Aggiunti tasti per zoom percentuale e visualizzazione direttamente di una sola regione alla volta
+1.3.0 - Aggiunta regressione polinomiale e lineare per dati futuri
+1.2.0 - Aggiunti dati calcolati ulteriori a fine liste
+1.1.0 - Aggiunta funzione interna di selezione dato per nome invec che per numero 
+1.0.0 - Aggiunte liste di scelta per dati e regioni e simmetrizzato lo zoom.
+0.5.0 - Aggiunta lista di scelta per Italia
+0.4.2 - Aggiunto controllo tramnite tastiera degli slider; rimosso secondo slider temporaneo in secondo grafico.
+0.4.1 - Allargati slider, aggiunti calcoli
+0.4.0 - Risolto bug di dati errati in primo grafico: aggiunto grafico per italia oltre a due per regioni; ottimizzati slider e layout.
+0.3.2 - Precompilate caselle di testo con numero del campo graficato
+0.3.1 - Risolto bug di cambio titolo grafici al cambio manuale dei dati; prima versione pubblica
+0.3.0 - Aggiungo slider scala
+0.2.0 - Provo con dati regionali
+0.1.0 - Provo con dati italiani
+0.0.3 - 
+Versione 0.0.2 - Disponibili dati grezzi e differenze, ora devo metterli su due grafici diversi
+
+-->
+
+	<head>
+	<script src="js/jquery.js"></script> <!-- https://jquery.com/download/ -->
+	<script src="js/Chart.bundle.js"></script> <!--  https://github.com/chartjs/Chart.js/releases/tag/v2.8.0  La versione "bundle" contiene anche tutte le dipendenze necessarie -->
+	<script src="js/utils.js"></script>		<!-- https://gist.github.com/dsmoore/d9526ecc66fd3dccffd1cde73ea738a5 Contiene definizioni dei colori -->
+	<script src="js/chart-config2.js"></script>
+	<script src="js/posti.js"></script>
+	</head>
+	
+	<body>
+    <script type="text/javascript" src="js/regression2.min.js"></script> <!-- Per linea di tendenza polinomiale -->
+	<script>
+
+	datoInizialeItalia = 11;
+  //regressionStartIndex = 371;
+	regressionNextDaysCount = 90;
+	
+	scDataItalia = scatterChartDataItalia();
+	configItalia = config();
+	configItalia.options.title.text = "Italia";
+	configItalia.options.scales.yAxes[0].ticks.max = scalaInizialeItalia;
+	configItalia.data = scDataItalia;	
+
+	scData = scatterChartData();
+		
+	scalaInizialeRegioni=500;
+
+	prevNum = 0;
+  	DEBUG_FILTER=100;
+
+	paramMax = getParam("max",100);
+	paramMax2 = getParam("max2",500);
+
+	$( document ).ready(function() {
+		var regionSpan;
+		
+		// Crea tabella regioni: una regione per riga, ogni colonna un dato diverso; i dati verranno scelti dopo:
+		CELLSNUM = 4;
+		REGION_SIZE = 400;
+		ctxRegione = [];
+		chartRegione = [];
+		configRegione = [];
+	    
+		elmTable = document.createElement("TABLE");
+		elmTable.setAttribute("border", "1");
+		for (regione=0; regione < regioni.length; regione++) {
+			ctxRegione.push([]);
+			chartRegione.push([]);
+			configRegione.push([]);
+			var elmTableRow = document.createElement("TR");
+			for (cell=0; cell < CELLSNUM; cell++) {		
+				var elmTableCell = document.createElement("TD");
+				var elmDiv = document.createElement("DIV");
+					elmDiv.setAttribute("style", "width:" + REGION_SIZE + "px");
+				var elmCanvas = document.createElement("CANVAS");
+					elmCanvas.setAttribute("id", "graficoRegione" + regione + "_" + cell);
+					elmCanvas.setAttribute("name", "graficoRegione" + regione + "_" + cell);
+					ctxRegione[regione].push(elmCanvas.getContext('2d'));
+						configRegione[regione][cell] = config();
+						configRegione[regione][cell].options.title.text = regioni[regione];
+						configRegione[regione][cell].options.scales.yAxes[0].ticks.max = scalaInizialeRegioni;
+						configRegione[regione][cell].data = scatterChartData();
+						configRegione[regione][cell].data.datasets.push(datasetTemplate());
+						configRegione[regione][cell].data.datasets.push(datasetTemplate());
+						configRegione[regione][cell].data.datasets.push(datasetTemplate());
+					    configRegione[regione][cell].data.datasets[0].borderColor = 'rgb(0, 0, 0)'
+					    configRegione[regione][cell].data.datasets[0].backgroundColor = 'rgb(0, 0, 0)'
+					chartRegione[regione].push(Chart.Scatter(ctxRegione[regione][cell], configRegione[regione][cell]));	  
+				var elmCenter = document.createElement("CENTER");
+				var elmLabel = document.createElement("SPAN");
+					elmLabel.setAttribute("id", "lblRegion" + regione + "Datum" + cell);
+					elmLabel.setAttribute("name", "lblRegion" + regione + "Datum" + cell);
+					elmLabel.innerHTML="datum_"+regione+"_"+cell;
+				var elmBR = document.createElement("BR");
+						
+				elmCenter.appendChild(elmCanvas);   				
+				elmCenter.appendChild(elmBR);  
+				elmCenter.appendChild(elmLabel);  
+				elmDiv.appendChild(elmCenter);  
+				elmTableCell.appendChild(elmDiv);  
+				elmTableRow.appendChild(elmTableCell);  		
+			}
+
+			elmTable.appendChild(elmTableRow);  				
+		}
+			document.body.appendChild(elmTable);  				
+		
+		//slider1 = document.getElementById("rngSlider");
+		//document.getElementById("rngSlider").min = 10;
+		//document.getElementById("rngSlider").max = maxRegioni;
+		//document.getElementById("rngSlider").value = scalaInizialeRegioni;
+		//slider1.onchange=function () {
+		//	scale(this.value*1.0, 1);
+		//}
+	//	window.chartRegioni1 = Chart.Scatter(ctxRegioni, configRegione);	  
+	
+	});
+	
+	
+	
+	function mialabel(tooltipItem, data) {
+	//	console.log(tooltipItem);
+		return data.datasets[tooltipItem.datasetIndex].label + ": " + tooltipItem.xLabel.substr(0,16) + " - " + tooltipItem.yLabel.toFixed(1) + " (n." + tooltipItem.index + ")";
+	}
+
+	function getOption(opzione) {
+        return ('<option value="' + headerArray[opzione] + '">' +  headerArray[opzione]  + '</option>');
+	}
+
+	function getOptionRegion(opzione) {
+        return ('<option value="' + headerArrayRegioni[opzione] + '">' +  headerArrayRegioni[opzione]  + '</option>');
+	}
+
+	function getOptionRegionName(opzione) {
+        return ('<option value="' + regioni[opzione] + '">' +  regioni[opzione]  + '</option>');
+	}
+
+
+			
+	function down() {
+		  var fullURL;			
+console.log("invio richiesta...");	
+			document.getElementById("status").innerHTML = "Invio prima richiesta....";		
+			fullURL = "https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv";
+			// Italia: https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv
+			// Mondo: https://github.com/CSSEGISandData/COVID-19/raw/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv
+		
+			var client = new XMLHttpRequest();
+console.log ("Apro " + fullURL + "...");
+
+			corsurl = "http://win98.altervista.org/space/exploration/myp.php?pass=miapass&mode=native&url=" + encodeURIComponent(fullURL);
+			client.open('GET', corsurl);
+
+			//client.open('GET', "https://cors-anywhere.herokuapp.com/" + fullURL);
+			//client.responseType = 'text';
+			client.onload = function() {
+				document.getElementById("status").innerHTML = "Primo batch dati ricevuto. Elaboro...";
+				console.log("Risposta ricevuta");
+				dataCSV1 = client.response; // Load remote response.
+				document.getElementById("status").innerHTML = "Primo batch processato. Scarico il secondo...";
+				fullURL = "https://github.com/pcm-dpc/COVID-19/raw/master/dati-regioni/dpc-covid19-ita-regioni.csv"; // Dati regionali
+console.log("invio SECONDA richiesta...");	
+				corsurl = "http://win98.altervista.org/space/exploration/myp.php?pass=miapass&mode=native&url=" + encodeURIComponent(fullURL);
+				client.open('GET', corsurl);
+				client.responseType = 'text';
+				client.onload = function() {
+					document.getElementById("status").innerHTML = "Secondo batch ricevuto. Elaboro...";
+console.log("Seconda risposta ricevuta");
+					dataCSV2 = client.response; // Load remote response.
+					processRegionData();
+
+					// Traccia effettivamente il  grafico usando i dati pre-memorizzati:
+					dato1 = arrIndex(headerArrayRegioni,"percentuale_positivi(c)");
+					dato2 = arrIndex(headerArrayRegioni,"percentuale_terapia_intensiva_dopo(c)");
+					dato3 = arrIndex(headerArrayRegioni,"morti_giornalieri(c)");
+					dato4 = arrIndex(headerArrayRegioni,"");							
+					mettiDatiInGraficiRegioni(dato1,0,true);														
+					mettiDatiInGraficiRegioni(dato2,1,true);														
+					mettiDatiInGraficiRegioni(dato3,2,false);														
+					//mettiDatiInGraficiRegioni(dato4,3,false);
+
+					for (regione=0; regione < regioni.length; regione++) {
+						for (cell=0; cell < CELLSNUM; cell++) {
+console.log("Aggiorno grafico " + headerArrayRegioni[cell] + " per regione " + regioni[regione]);
+							document.getElementById("status").innerHTML = "Aggiorno grafico " + headerArrayRegioni[cell] + " per regione " + regioni[regione];
+							chartRegione[regione][cell].update();
+						}
+					}
+					document.getElementById("status").innerHTML = "";
+				};
+				
+				client.onerror = function(event) {
+					document.getElementById("status").innerHTML = "Errore di rete su batch 2";
+					alert("Errore di rete, riprovare.");
+				}					
+				
+			    client.onprogress = function(event) {
+			  		showDownloadProgress(client.response.length);
+				};	
+							
+				client.send(); 
+			};	
+			
+		    client.onprogress = function(event) {
+		  		showDownloadProgress(client.response.length);
+			};	
+			
+			client.onerror = function(event) {
+				document.getElementById("status").innerHTML = "Errore di rete su batch 1";
+			}
+						
+			client.send(); 
+			
+	}
+	
+	
+	
+	function mySorter(a,b) {
+		if (a.LastValOfLine*1.0 > b.LastValOfLine*1.0) {
+	        return -1;
+	    }
+	    if (b.LastValOfLine*1.0 > a.LastValOfLine*1.0) {
+	        return 1;
+	    }
+    	return 0;
+	}
+	
+	
+	
+	
+	function showDownloadProgress(L) {
+	  	document.getElementById("status").innerHTML = "Downloading... " + L;
+	}
+	
+	
+	function arrIndex(arr, arrKey) {
+		keyFound = false;
+		for (i=0; i < arr.length; i++) {
+			if(arr[i] == arrKey) {
+				keyFound = true;
+				return i;
+			}
+		}
+		return -1; // will raise an error in caller function
+	}
+	
+	
+	function processItalianData() {
+		tabellaVirgoleItalia = dataCSV1.split("\n"); //
+		tabella = []; // Definisce array bidimensionale, cioè tabella
+		
+		headerArray = tabellaVirgoleItalia[0].split(",");
+		//tabella.push(arrayRigaIntestazioni);
+		//headerArray = tabella[0];
+		tamponi_ieri = 0;
+		casiTestati_ieri = 0;
+		morti_ieri = 0;	
+        terapiaIntensiva_ieri = 0;
+		for (riga = 0; riga < tabellaVirgoleItalia.length-1; riga++) { // L'ultima riga della tabella originale risulta vuota
+			arrayRiga = tabellaVirgoleItalia[riga].split(",");
+
+
+			if ((riga>0) && (arrayRiga.length>3)) { // Aggiunge dati in fondo a riga solo se la riga contiene già dati validi
+
+//   ******************** Dati calcolati aggiuntivi ITALIA
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+				guariti = arrayRiga[arrIndex(headerArray,"dimessi_guariti")] * 1.0 ;
+
+				morti = arrayRiga[arrIndex(headerArray,"deceduti")]* 1.0;
+                morti_giornalieri = morti - morti_ieri;
+                morti_ieri = morti;
+
+
+
+				nuovi_positivi = arrayRiga[arrIndex(headerArray,"nuovi_positivi")]* 1.0;
+				guariti_su_ricoverati = 100 * guariti / (morti + guariti);
+				guariti_su_morti = 100 * guariti / morti;
+
+				tamponi = arrayRiga[arrIndex(headerArray,"tamponi")];
+				tamponi_giornalieri = arrayRiga[arrIndex(headerArray,"tamponi")] - tamponi_ieri;
+                tamponi_ieri = tamponi;
+
+				casi = arrayRiga[arrIndex(headerArray,"totale_casi")]; // debug - usato???
+
+				casiTestati = arrayRiga[arrIndex(headerArray,"casi_testati")]; // = tamponi non ricorrenti
+                casiTestati_giornalieri = casiTestati - casiTestati_ieri;
+                casiTestati_ieri = casiTestati;
+
+				terapiaIntensiva = arrayRiga[arrIndex(headerArray,"terapia_intensiva")];
+                terapiaIntensiva_giornalieri = terapiaIntensiva - terapiaIntensiva_ieri;
+                terapiaIntensiva_ieri = terapiaIntensiva;
+
+				if (100*nuovi_positivi/tamponi_giornalieri >100){
+					percentuale_positivi = 0;
+				} else {
+					percentuale_positivi = 100*nuovi_positivi/tamponi_giornalieri;
+				}
+
+				if (100*nuovi_positivi/casiTestati_giornalieri >100){ // Calcola percentuale su soli tamponi non ricorrenti
+					percentuale_testati_positivi = 0;
+				} else {
+					percentuale_testati_positivi = 100*nuovi_positivi/casiTestati_giornalieri;
+				}
+
+				if (100*terapiaIntensiva_giornalieri/postiTItotaliPrima >100){ 
+					percentuale_terapia_Italia_Prima = 0;
+				} else {
+					percentuale_terapia_Italia_Prima = 100*terapiaIntensiva/postiTItotaliPrima;
+				}
+
+				if (100*terapiaIntensiva_giornalieri/postiTItotaliDopo >100){ 
+					percentuale_terapia_Italia_Dopo = 0;
+				} else {
+					percentuale_terapia_Italia_Dopo = 100*terapiaIntensiva/postiTItotaliDopo;
+				}
+
+				arrayRiga.push(guariti_su_ricoverati);
+				arrayRiga.push(guariti_su_morti);
+				arrayRiga.push(tamponi_giornalieri);
+				arrayRiga.push(morti_giornalieri);
+				arrayRiga.push(casiTestati_giornalieri);
+				arrayRiga.push(percentuale_positivi);
+				arrayRiga.push(percentuale_testati_positivi);
+				arrayRiga.push(percentuale_terapia_Italia_Prima);
+				arrayRiga.push(percentuale_terapia_Italia_Dopo);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+			}
+			if (riga==0) {
+                arrayRiga.push("guariti_su_ricoverati(c)","guariti_su_morti(c)","tamponi_giornalieri(c)","percentuale_positivi(c)")
+			}
+			tabella.push(arrayRiga);											
+		}
+
+//   ******************** Dati calcolati aggiuntivi		
+		headerArray.push("percentuale_guariti_su_ricoverati(c)");
+		headerArray.push("percentuale_guariti_su_morti(c)");
+		headerArray.push("tamponi_giornalieri(c)");
+		headerArray.push("morti_giornalieri(c)");
+		headerArray.push("casi_testati_giornalieri(c)");
+		headerArray.push("percentuale_positivi(c)");
+		headerArray.push("percentuale_testati_positivi(c)");
+		headerArray.push("percentuale_terapia_intensiva_prima(c)");
+		headerArray.push("percentuale_terapia_intensiva_dopo(c)");
+/////////////////////////////////////////////////////
+
+		
+		// Mostra elenco dei campi disponibili per il ritracciamento:
+		//for (campo = 0; campo < headerArray.length; campo++) {
+		//	document.getElementById("listaDisponibiliItalia").innerHTML += getOption(campo);
+		//}		
+		
+		decreti = [
+			{ "data" : "2020/02/23", "riassunto" : ""},  // 1
+			{ "data" : "2020/02/25", "riassunto" : ""},  // 2
+			{ "data" : "2020/03/01", "riassunto" : ""},  // 3
+			{ "data" : "2020/03/04", "riassunto" : ""},  // 4
+			{ "data" : "2020/03/08", "riassunto" : ""},  // 5
+			{ "data" : "2020/03/09", "riassunto" : ""},  // 6
+			{ "data" : "2020/03/11", "riassunto" : ""},  // 7
+			{ "data" : "2020/03/18", "riassunto" : ""},  // 8
+			{ "data" : "2020/03/22", "riassunto" : ""},  // 9
+			{ "data" : "2020/03/28", "riassunto" : ""},  // 10
+			{ "data" : "2020/04/01", "riassunto" : ""},  // 11
+			{ "data" : "2020/04/04", "riassunto" : ""},  // 12
+			{ "data" : "2020/04/10", "riassunto" : ""},  // 13
+			{ "data" : "2020/04/26", "riassunto" : ""},  // 14
+			{ "data" : "2020/05/12", "riassunto" : ""},  // 15
+			{ "data" : "2020/05/17", "riassunto" : ""},  // 16
+			{ "data" : "2020/05/18", "riassunto" : ""},  // 17
+			{ "data" : "2020/06/11", "riassunto" : ""},  // 18
+			{ "data" : "2020/07/14", "riassunto" : ""},  // 19
+			{ "data" : "2020/08/07", "riassunto" : ""},  // 20
+			{ "data" : "2020/09/07", "riassunto" : ""},  // 21
+			{ "data" : "2020/10/13", "riassunto" : ""},  // 22
+			{ "data" : "2020/10/18", "riassunto" : ""},  // 23
+			{ "data" : "2020/10/24", "riassunto" : ""},  // 25
+			{ "data" : "2020/11/03", "riassunto" : "Regioni colorate"},  // 24
+			{ "data" : "2020/12/03", "riassunto" : "Blocco natalizio - 1"}   // 24
+		];
+	
+	
+		for (decretindex = 0; decretindex < decreti.length; decretindex++) {
+			decreto = datasetTemplate();
+			decreto.borderColor =  "rgb(0, 0, 0)";
+			decreto.backgroundColor =  "rgb(0, 0, 0)";
+			decreto.borderWidth = 1;
+			decreto.label = "DPCM";
+			decreto.data = [{x: decreti[decretindex].data, y: 0} , {x: decreti[decretindex].data, y: 50}];
+			scDataItalia.datasets.push(decreto);			
+		}
+	} // ProcessItalianData()
+		
+		
+		
+	function processRegionData() {
+		tabellaVirgoleRegioni = dataCSV2.split("\n"); //
+console.log("Trovate " + tabellaVirgoleRegioni.length + " righe.");				
+		tabellaRegioni = []; // Definisce array bidimensionale, cioè tabella
+        tamponi_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        terapiaIntensiva_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        casiTestati_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        morti_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_positiviRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_testati_positiviRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_terapia_Regioni_Prima = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        percentuale_terapia_Regioni_Dopo = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+
+
+		// Salta righe spurie nella tabella (response HTML), cercando quella che contiene effettivamente l'header:
+		rigaHeaderIta=0;
+		for(rigaIndexIta = 0; ((rigaIndexIta < tabellaVirgoleRegioni.length) && (tabellaVirgoleRegioni[rigaIndexIta].indexOf("data")<0)); rigaIndexIta++) {
+		}
+
+        rigaHeaderIta = rigaIndexIta;
+
+
+//        ultimiTamponiGiornalieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+		for (riga = rigaHeaderIta; riga < tabellaVirgoleRegioni.length; riga++) {
+			arrayRigaRegioni = tabellaVirgoleRegioni[riga].split(",");
+			tabellaRegioni.push(arrayRigaRegioni);
+
+//   ******************** Dati calcolati aggiuntivi per REGIONI
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		}
+
+		headerArrayRegioni = tabellaRegioni[0];
+		headerArrayRegioni.push("percentuale_guariti_su_ricoverati(c)");
+		headerArrayRegioni.push("percentuale_guariti_su_morti(c)");
+		headerArrayRegioni.push("tamponi_giornalieri(c)");
+		headerArrayRegioni.push("morti_giornalieri(c)");
+		headerArrayRegioni.push("percentuale_positivi(c)");
+		headerArrayRegioni.push("percentuale_testati_positivi(c)");
+		headerArrayRegioni.push("percentuale_terapia_intensiva_prima(c)");
+		headerArrayRegioni.push("percentuale_terapia_intensiva_dopo(c)");
+
+		//for (campo = 0; campo < headerArrayRegioni.length; campo++) {
+        //    document.getElementById("listaDisponibiliRegioni").innerHTML += getOptionRegion(campo);
+		//}
+
+
+		datiRegioni = [[[]]];
+		for (regione=0; regione < regioni.length; regione++) {
+			datiRegioni[regioni[regione]] = [[]]; // Crea arrei vuoto per dati regionali
+		}
+
+		for (riga=1; riga < tabellaRegioni.length; riga++) {
+			for (regione = 0; regione < regioni.length; regione++) {
+				if (tabellaRegioni[riga][3] == regioni[regione]) {
+					guaritiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"dimessi_guariti")] * 1.0 ;
+
+					mortiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"deceduti")]* 1.0;
+	                morti_giornalieriRegioni = mortiRegioni - morti_ieriRegioni[regione];
+	                morti_ieriRegioni[regione] = mortiRegioni;
+
+					nuovi_positiviRegioni 	= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"nuovi_positivi")]* 1.0;
+					casiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"totale_casi")]* 1.0;
+					guariti_su_ricoveratiRegioni = 100 * guaritiRegioni / (mortiRegioni + guaritiRegioni);
+					guariti_su_mortiRegioni = 100 * guaritiRegioni / mortiRegioni;
+
+					tamponiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"tamponi")]* 1.0;
+					tamponi_giornalieriRegioni = tamponiRegioni - tamponi_ieriRegioni[regione];
+	                tamponi_ieriRegioni[regione] = tamponiRegioni;
+//                    ultimiTamponiGiornalieriRegioni[regione] = tamponi_giornalieriRegioni;
+
+					casiTestatiRegioni = tabellaRegioni[riga][arrIndex(headerArrayRegioni,"casi_testati")] * 1.0 ; // = tamponi non ricorrenti
+	                casiTestati_giornalieriRegioni = casiTestatiRegioni - casiTestati_ieriRegioni[regione];
+	                casiTestati_ieriRegioni[regione] = casiTestatiRegioni;
+
+
+
+					terapiaIntensivaRegioni =  tabellaRegioni[riga][arrIndex(headerArrayRegioni,"terapia_intensiva")]* 1.0;
+	                terapiaIntensiva_giornalieriRegioni = terapiaIntensivaRegioni - terapiaIntensiva_ieriRegioni[regione];
+	                terapiaIntensiva_ieriRegioni[regione] = terapiaIntensivaRegioni;
+
+					temp = 100*nuovi_positiviRegioni/tamponi_giornalieriRegioni;
+					if (temp > 100) {
+//console.log("Percentuale errata per nuovi_positiviRegioni in riga " , riga , "per regione " , regioni[regione] , "(" , nuovi_positiviRegioni , "," , tamponi_giornalieriRegioni , ": " , temp ,  ")");
+						percentuale_positiviRegioni[regione] = 0;
+//console.log("Quindi ho memorizzato: ", 	percentuale_positiviRegioni[regione]);
+					} else {
+						percentuale_positiviRegioni[regione] = temp;
+					}
+
+					if (100*nuovi_positiviRegioni/casiTestati_giornalieriRegioni >101){ // Calcola percentuale su soli tamponi non ricorrenti
+//console.log("Percentuale errata per percentuale_testati_positiviRegioni in riga " , riga , "per regione " , regione , "(" , tabellaRegioni[riga], "," , nuovi_positiviRegioni , "," , casiTestati_giornalieriRegioni , ")");
+						percentuale_testati_positiviRegioni[regione] = 0;
+					} else {
+						percentuale_testati_positiviRegioni[regione] = 100*nuovi_positiviRegioni/casiTestati_giornalieriRegioni;
+					}
+
+					postiPrima = postiTIregioni[regione].prima;
+					if (100*terapiaIntensivaRegioni/postiPrima >101){
+//console.log("Percentuale errata per terapiaIntensivaRegioni prima in riga " , riga , "per regione " , regione , "(" , tabellaRegioni[riga], "," ,terapiaIntensivaRegioni , "," , postiPrima , ")");
+						percentuale_terapia_Regioni_Prima[regione] = 0;
+					} else {
+						percentuale_terapia_Regioni_Prima[regione] = 100*terapiaIntensivaRegioni/postiPrima;
+					}
+
+					postiDopo = postiTIregioni[regione].prima + postiTIregioni[regione].aggiunti;
+					if (100*terapiaIntensivaRegioni/postiDopo >101){
+//console.log("Percentuale errata per terapiaIntensivaRegioni dopo in riga " , riga , "per regione " , regione , " (" , tabellaRegioni[riga], "," ,terapiaIntensivaRegioni , "," , postiDopo , ")");
+						percentuale_terapia_Regioni_Dopo[regione] = 0;
+					} else {
+						percentuale_terapia_Regioni_Dopo[regione] = 100*terapiaIntensivaRegioni/postiDopo;
+					}
+
+					tabellaRegioni[riga].push(guariti_su_ricoveratiRegioni);
+					tabellaRegioni[riga].push(guariti_su_mortiRegioni);
+					tabellaRegioni[riga].push(tamponi_giornalieriRegioni);
+					tabellaRegioni[riga].push(morti_giornalieriRegioni);
+					tabellaRegioni[riga].push(percentuale_positiviRegioni[regione]);
+					tabellaRegioni[riga].push(percentuale_testati_positiviRegioni[regione]);
+					tabellaRegioni[riga].push(percentuale_terapia_Regioni_Prima[regione]);
+					tabellaRegioni[riga].push(percentuale_terapia_Regioni_Dopo[regione]);
+				}
+			}
+		}
+
+
+console.log("percentuale_positiviRegioni",percentuale_positiviRegioni);
+
+// Curve normalizzate:
+		tamponi_ieriRegioni = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+		for (riga=1; riga < tabellaRegioni.length; riga++) {
+			for (regione = 0; regione < regioni.length; regione++) {
+				if (tabellaRegioni[riga][3] == regioni[regione]) {
+                    tamponiRegioni 			= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"tamponi")]* 1.0;
+                    nuovi_positiviRegioni 	= tabellaRegioni[riga][arrIndex(headerArrayRegioni,"nuovi_positivi")]* 1.0;
+                    tamponi_giornalieriRegioni = tamponiRegioni - tamponi_ieriRegioni[regione];
+                    PP = nuovi_positiviRegioni/tamponi_giornalieriRegioni;
+                    tot100000 = PP * 10000;
+					tabellaRegioni[riga].push(tot100000); //////////////////////////////////
+	                tamponi_ieriRegioni[regione] = tamponiRegioni;
+					datiRegioni[regioni[regione]].push(tabellaRegioni[riga]);
+				}
+			}
+		}
+	}
+
+
+	function nuoviDati() {
+		pulisci();
+		mettiDatiInGraficiRegioni( nuovo1 )
+	}
+
+
+	function mettiDatiInGraficiRegioni(campo1,localCell, isPerc) {
+		//configRegione.options.title.text = "Regioni - " + headerArrayRegioni[campo1];
+console.log("Dati in grafici " ,campo1, headerArrayRegioni[campo1], localCell, isPerc, paramMax);
+		maxRegioni = -1;
+		minRegioni = 100000000;
+		maxRegioni = -1;
+		minRegioni = 100000000;
+
+   
+
+		for (localRegione=0; localRegione < regioni.length; localRegione++) {
+			for (rigaTabella=1; rigaTabella < datiRegioni[regioni[localRegione]].length; rigaTabella++) {
+				giorno = datiRegioni[regioni[localRegione]][rigaTabella][0];
+				numero = datiRegioni[regioni[localRegione]][rigaTabella][campo1]*1.0;
+
+/*
+				if ((numero > maxRegioni) && (numero<Infinity)) {
+	                maxRegioni = numero;
+				}
+				if (numero < minRegioni) {
+	                minRegioni = numero;
+				}*/
+
+				
+				if (isPerc) {
+					minRegioni = 0;
+					maxRegioni = paramMax;
+				} else {
+					minRegioni = 0;
+					maxRegioni = paramMax2;
+				}
+
+				if ( (isNaN(numero)) || (numero > maxRegioni) ) {
+// console.log("Discarding ", numero , " in region " , localRegione);
+					numero = prevNum;
+				} else {
+      				prevNum = numero;
+				}
+
+				coppia = {x : giorno, y : numero};
+				configRegione[localRegione][localCell].data.datasets[0].data.push(coppia);
+			}
+
+			configRegione[localRegione][localCell].data.datasets[0].label = regioni[localRegione];
+			configRegione[localRegione][localCell].data.datasets[1].label = regioni[localRegione] + " - poly";
+			configRegione[localRegione][localCell].data.datasets[1].borderColor = window.chartColors.red;
+			configRegione[localRegione][localCell].data.datasets[2].label = regioni[localRegione] + " - lin";
+			configRegione[localRegione][localCell].data.datasets[2].borderColor = window.chartColors.green;
+			configRegione[localRegione][localCell].options.title.text = regioni[localRegione];
+			document.getElementById("lblRegion"+ localRegione + "Datum" + localCell).innerHTML = headerArrayRegioni[campo1];
+
+
+regressionStartIndex = configRegione[localRegione][localCell].data.datasets[0].data.length-30;
+console.log("Dopo=",regressionStartIndex);
+
+//console.log("Regressione 1 di " , regioni[localRegione], " per dato " , headerArrayRegioni[campo1] , "; ",configRegione[localRegione][localCell].data.datasets[0].data);
+
+			//////////// Aggiunge dati di regressione alla fine  - regioni 1/////
+			arrayForRegression = noDates(configRegione[localRegione][localCell].data.datasets[0].data, regressionStartIndex); // Converte in formato adatto alla libreria
+			polyReg = regression("polynomial", arrayForRegression, 2); // calcola regressione plinomiale
+			finalData = datesBack(polyReg, regressionStartIndex, configRegione[localRegione][localCell].data.datasets[0].data, regressionNextDaysCount); // rimette in formato giusto per plotly
+			configRegione[localRegione][localCell].data.datasets[1].data = finalData; // aggiunge in fondo alla traccia (sostituendo traccia originale)
+
+//console.log("Regressione 2 di " , regioni[localRegione], " per dato " , headerArrayRegioni[campo1] , "; ",configRegione[localRegione][localCell].data.datasets[0].data);
+
+			arrayForRegression2 = noDates(configRegione[localRegione][localCell].data.datasets[0].data, regressionStartIndex); // Converte in formato adatto alla libreria
+			linReg = regression("linear", arrayForRegression2); // calcola regressione lineare
+			finalData2 = datesBack(linReg, regressionStartIndex, configRegione[localRegione][localCell].data.datasets[0].data, regressionNextDaysCount); // rimette in formato giusto per plotly
+			configRegione[localRegione][localCell].data.datasets[2].data = finalData2; // aggiunge in fondo alla traccia (sostituendo traccia originale)
+
+			////////////////////////////////////////////////////////
+
+	        configRegione[localRegione][localCell].options.scales.yAxes[0].ticks.min = minRegioni;// DEBUG implementare
+	        configRegione[localRegione][localCell].options.scales.yAxes[0].ticks.max = maxRegioni; 
+console.log(campo1,localCell, isPerc);	        
+		}
+console.log("Fatto.");
+	}
+	
+
+
+	function noDates(oldArray, position) {
+		// Converte l'array dal formato plotly (array di oggetti-coppia) al formato della libreria (array di array bidimensionali)
+	    // Calcola dati di regressione a partire da un certo punto dei dati (position)
+		newArray = []
+		for (ind = position ; ind < oldArray.length; ind++) {
+	        newArray.push([ind, oldArray[ind].y])
+		}
+		return newArray;
+	}
+
+
+	function datesBack(processedArray, position, oldArray, newDataCount) {
+//console.log("OLD=",oldArray);	
+		// Aggiunge dati futuri a traccia e riconverte array da formato-libreria a formato plotly
+		newArray = []
+
+		// Sostituzione valori fino ad oggi:
+		for (ind = 0 ; ind < position /*oldArray.length*/; ind++) {
+	        	newArray.push({x:  oldArray[ind].x, y: oldArray[ind].y}); // fino alla proposizione precedente all'elaborazione, mette dati vecchi
+		}
+
+		// L'array originale arrivava fino alla data di oggi; da domani in poi aggiungo i dati futuri ipotizzati
+		lastDate = new Date(oldArray[ind - 1].x);
+		for (x =  position /*oldArray.length*/; x < oldArray.length + newDataCount; x++) {
+			if (processedArray.equation.length == 3 ) {
+				y = newY(processedArray.equation,x);
+			} else {
+				y = newYLin(processedArray.equation,x); // Bug in linear regression: coefficients inverted!
+			}
+			lastDateMS = new Date(lastDate).getTime();
+			newDateMS = lastDateMS + 86400000;
+			newDateJS = new Date(newDateMS);
+			newDate = newDateJS.toISOString();
+	        newArray.push({x:  newDate, y: y})
+			lastDate = newDate;
+		}
+
+		return newArray;
+	}
+
+
+	function newY(equation, x) {
+//console.log("Equzione = ", equation);
+		// Calcola valori futuri in base a equaziona calcolata dalla libreria
+		y = 0;
+		for (pos=0; pos < equation.length; pos++) {
+			coeff = equation[pos];
+			xfact = Math.pow(x,pos);
+			parzResult = coeff * xfact;
+//console.log(coeff , "*x^" , pos , " = " , coeff ,"*", xfact, " = ", parzResult);
+			y += parzResult;
+		}
+		return y;
+	}
+
+
+	function newYLin(equation, x) {
+//console.log("Equzione = ", equation);
+		// Calcola valori futuri in base a equaziona calcolata dalla libreria
+		y = 0;
+		for (pos=0; pos < equation.length; pos++) {
+			coeff = equation[1-pos];
+			xfact = Math.pow(x,pos);
+			parzResult = coeff * xfact;
+//console.log(coeff , "*x^" , pos , " = " , coeff ,"*", xfact, " = ", parzResult);
+			y += parzResult;
+		}
+		return y;
+	}
+
+
+
+
+	function pulisci() {
+		for (regione=0; regione < regioni.length; regione++) {
+			//scDataItalia.datasets[0].data = [];	
+			//scData.datasets[regione].data = [];	
+		}
+			configRegione.data = scData;
+			//window.chartRegioni1.update();	
+	}
+
+
+function zoomItalia(val) {
+    scale(val,0);
+    sliderItalia.value=val;
+}
+
+function zoomRegioni(val) {
+    scale(val,1);
+    slider.value=val;
+}
+
+
+	function scale(scaleValue,chartNumber) {
+		if(chartNumber == 0) {
+console.log("scala=",scaleValue);		
+			configItalia.options.scales.yAxes[0].ticks.max = scaleValue;
+			configItalia.options.scales.yAxes[0].ticks.min = 0;
+			window.chartItalia.update();	
+		}
+		if(chartNumber == 1) {
+console.log("scala1=",scaleValue);
+			configRegione.options.scales.yAxes[0].ticks.max = scaleValue;
+			configRegione.options.scales.yAxes[0].ticks.min = 0;
+			window.chartRegioni1.update();	
+		}
+	}
+	
+
+function toggleDecretiItalia() {
+	for (i=3; i< scDataItalia.datasets.length; i++) {
+		if (scDataItalia.datasets[i].borderColor == "rgb(255,255,255)") {
+			scDataItalia.datasets[i].borderColor="rgb(0,0,0)"
+		} else {
+			scDataItalia.datasets[i].borderColor="rgb(255,255,255)"
+		}
+	}
+	window.chartItalia.update();	
+}	
+	
+	String.prototype.replaceAll = function(search, replacement) {
+	    var target = this;
+	    return target.split(search).join(replacement);
+	};
+	
+	function getParam(text,defaultVal) {
+		regex = "/.*" + text + "=([^&]*).*|(.*)/"
+		var url = new URL(document.URL);
+		temp =  url.searchParams.get(text);
+		if (temp != null) {
+			return temp;
+		} else {
+			return defaultVal;
+		}
+	}
+
+
+   </script>
+   
+	<center><big><big><strong>Andamento coronavirus Italia</big></big></strong><br>
+	Dati: <a href="https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv">https://github.com/pcm-dpc/COVID-19/raw/master/dati-andamento-nazionale/dpc-covid19-ita-andamento-nazionale.csv</a><br>
+	<a href="https://github.com/pcm-dpc/COVID-19/raw/master/dati-regioni/dpc-covid19-ita-regioni.csv">https://github.com/pcm-dpc/COVID-19/raw/master/dati-regioni/dpc-covid19-ita-regioni.csv</a><br>
+	Elaborazione: Luca Cassioli<br>
+	Versione 3.1.2 - 07/06/2022<br>
+	<br><strong>
+	<span id="status" name="status"></span></center><br>
+	</strong>
+	<br>
+
+	Premere il pulsante per aggiornare: <button onclick="down();"> Aggiorna </button><br>
+
+
+
