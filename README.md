@@ -1,7 +1,7 @@
 # ZoneCovidItalia
 Visualizzazione grafica delle restrizioni regionali per covid ("colori") in vigore da novembre 2020
 
-![image](https://user-images.githubusercontent.com/1620953/152747481-a2ed6168-cb71-478a-977e-2975c2602d72.png)
+![image](https://user-images.githubusercontent.com/1620953/152756245-0930a381-30b7-4910-968a-e259c95a9483.png)
 
 Live: https://win98.altervista.org/coronavirus/grafico-colori-regioni-covid-zone-v4.html
 
